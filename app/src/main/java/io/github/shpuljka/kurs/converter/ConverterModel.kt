@@ -1,6 +1,7 @@
 package io.github.shpuljka.kurs.converter
 
 import io.github.shpuljka.kurs.calc.Calculator
+import io.github.shpuljka.kurs.calc.Editing
 import io.github.shpuljka.kurs.calc.Key
 import io.github.shpuljka.kurs.data.Currencies
 import io.github.shpuljka.kurs.data.Rates
@@ -9,13 +10,18 @@ import java.math.RoundingMode
 
 /**
  * State of the main screen, spec.md §1: currency rows, which one is being typed into,
- * and that row's expression. Pure — no Android, easy to test.
+ * and that row's expression with its cursor/selection. Pure — no Android, easy to test.
+ * A freshly shown amount is fully selected, so typing replaces it (spec §1.2).
  */
 data class ConverterModel(
     val codes: List<String>,
     val active: Int = 0,
     val expr: String = START_AMOUNT,
+    val selStart: Int = 0,
+    val selEnd: Int = expr.length,
 ) {
+    val editing: Editing get() = Editing(expr, selStart, selEnd)
+
     val canAdd: Boolean get() = codes.size < MAX_ROWS
     val canRemove: Boolean get() = codes.size > MIN_ROWS
 
@@ -31,19 +37,29 @@ data class ConverterModel(
         }
     }
 
-    fun press(key: Key): ConverterModel = copy(
-        expr = if (key == Key.Equals) {
-            Calculator.collapse(expr, Currencies.fractionDigits(codes[active]))
+    fun press(key: Key): ConverterModel {
+        val result = if (key == Key.Equals) {
+            Editing(Calculator.collapse(expr, Currencies.fractionDigits(codes[active])))
         } else {
-            Calculator.press(expr, key)
-        },
-    )
+            Calculator.edit(editing, key)
+        }
+        return copy(expr = result.text, selStart = result.min, selEnd = result.max)
+    }
 
-    /** Makes [index] the input row, seeding it with its current value. */
+    /** Places the cursor at [position] in [expr] (a tap in the active row). */
+    fun moveCursor(position: Int): ConverterModel {
+        val p = position.coerceIn(0, expr.length)
+        return copy(selStart = p, selEnd = p)
+    }
+
+    fun selectAll(): ConverterModel = copy(selStart = 0, selEnd = expr.length)
+
+    /** Makes [index] the input row, seeding it with its current value, fully selected. */
     fun select(index: Int, rates: Rates?): ConverterModel {
         if (index == active) return this
         val value = values(rates)[index] ?: BigDecimal.ZERO
-        return copy(active = index, expr = plain(value, codes[index]))
+        val seed = plain(value, codes[index])
+        return copy(active = index, expr = seed, selStart = 0, selEnd = seed.length)
     }
 
     fun add(code: String): ConverterModel =

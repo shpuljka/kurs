@@ -35,11 +35,61 @@ class AmountFormat(locale: Locale) {
     }
 
     /** The whole expression, e.g. `1 200 + 8%`. */
-    fun expression(expr: String): String = token.findAll(expr).joinToString("") {
-        when (val t = it.value) {
-            "-" -> " − "
-            "+", "×", "÷" -> " $t "
-            else -> typed(t)
+    fun expression(expr: String): String = editable(expr).text
+
+    /**
+     * [expr] for display, with offset maps so the UI can draw the cursor and turn a tap into a
+     * position in [expr]. Integer parts are grouped by thousands, the decimal point localized,
+     * operators spaced.
+     */
+    fun editable(expr: String): Formatted {
+        val out = StringBuilder()
+        val rawToDisplay = IntArray(expr.length + 1)
+        var i = 0
+        var inFraction = false
+        while (i < expr.length) {
+            val ch = expr[i]
+            when {
+                ch.isDigit() && !inFraction -> {
+                    val end = (i until expr.length).firstOrNull { !expr[it].isDigit() } ?: expr.length
+                    for (k in i until end) {
+                        if (k > i && (end - k) % 3 == 0) out.append(grouping)
+                        rawToDisplay[k] = out.length
+                        out.append(expr[k])
+                    }
+                    i = end
+                    continue
+                }
+                ch in Calculator.OPERATORS -> {
+                    rawToDisplay[i] = out.length
+                    out.append(' ').append(if (ch == '-') '−' else ch).append(' ')
+                    inFraction = false
+                }
+                ch == '.' -> {
+                    rawToDisplay[i] = out.length
+                    out.append(separator)
+                    inFraction = true
+                }
+                else -> {
+                    rawToDisplay[i] = out.length
+                    out.append(ch)
+                }
+            }
+            i++
         }
+        rawToDisplay[expr.length] = out.length
+        // Each display offset goes to the nearest raw offset (ties to the earlier one).
+        val displayToRaw = IntArray(out.length + 1)
+        var raw = 0
+        for (d in 0..out.length) {
+            while (raw < expr.length && rawToDisplay[raw + 1] - d < d - rawToDisplay[raw]) raw++
+            displayToRaw[d] = raw
+        }
+        return Formatted(out.toString(), rawToDisplay, displayToRaw)
     }
+
+    private val grouping = DecimalFormatSymbols.getInstance(locale).groupingSeparator
 }
+
+/** Display text plus offset maps between it and the raw expression. */
+class Formatted(val text: String, val rawToDisplay: IntArray, val displayToRaw: IntArray)

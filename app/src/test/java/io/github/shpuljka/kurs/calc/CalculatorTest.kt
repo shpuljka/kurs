@@ -94,6 +94,53 @@ class CalculatorTest {
 
     @Test fun `clear empties`() = assertEquals("", type(Key.Clear, from = "120+8%"))
 
+    // --- editing at the cursor / over a selection --------------------------
+
+    private fun edit(text: String, start: Int, end: Int = start, vararg keys: Key): Editing =
+        keys.fold(Editing(text, start, end)) { e, key -> Calculator.edit(e, key) }
+
+    @Test fun `typing over a full selection replaces the amount`() =
+        assertEquals(Editing("5", 1), edit("1234.5", 0, 6, d('5')))
+
+    @Test fun `decimal over a full selection starts a new number`() =
+        assertEquals(Editing("0.", 2), edit("100", 0, 3, Key.Decimal))
+
+    @Test fun `operator over a full selection continues the expression`() =
+        assertEquals(Editing("100+", 4), edit("100", 0, 3, Key.Op('+')))
+
+    @Test fun `percent over a full selection continues the expression`() =
+        assertEquals(Editing("100%", 4), edit("100", 0, 3, Key.Percent))
+
+    @Test fun `backspace deletes the selection`() = assertEquals(Editing("", 0), edit("100", 0, 3, Key.Backspace))
+
+    @Test fun `digit in the middle of a number`() = assertEquals(Editing("1534", 2), edit("134", 1, 1, d('5')))
+
+    @Test fun `backspace in the middle`() = assertEquals(Editing("14", 1), edit("134", 2, 2, Key.Backspace))
+
+    @Test fun `backspace at the start does nothing`() = assertEquals(Editing("134", 0), edit("134", 0, 0, Key.Backspace))
+
+    @Test fun `decimal point rejected if the number already has one after the cursor`() =
+        assertEquals(Editing("1.5", 1), edit("1.5", 1, 1, Key.Decimal))
+
+    @Test fun `operator inserted between digits`() = assertEquals(Editing("12+34", 3), edit("1234", 2, 2, Key.Op('+')))
+
+    @Test fun `operator next to an operator after the cursor replaces it`() =
+        assertEquals(Editing("12×34", 3), edit("12+34", 2, 2, Key.Op('×')))
+
+    @Test fun `operator at the very start is ignored`() = assertEquals(Editing("12", 0), edit("12", 0, 0, Key.Op('+')))
+
+    @Test fun `zero in front of digits is ignored`() = assertEquals(Editing("5", 0), edit("5", 0, 0, d('0')))
+
+    @Test fun `percent only at the end of a number`() {
+        assertEquals(Editing("12", 1), edit("12", 1, 1, Key.Percent))
+        assertEquals(Editing("12%+3", 3), edit("12+3", 2, 2, Key.Percent))
+    }
+
+    @Test fun `digit limit counts the whole number around the cursor`() =
+        assertEquals(Editing("123456789012", 3), edit("123456789012", 3, 3, d('7')))
+
+    @Test fun `leading decimal point after editing still evaluates`() = assertEval("0.5", ".5")
+
     // --- collapse (=) -----------------------------------------------------
 
     @Test fun `collapse rounds to currency digits`() = assertEquals("129.6", Calculator.collapse("120+8%", fractionDigits = 2))

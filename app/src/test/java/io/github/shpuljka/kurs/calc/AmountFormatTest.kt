@@ -28,6 +28,23 @@ class AmountFormatTest {
 
     @Test fun `typed empty is zero`() = assertEquals("0", ru.typed(""))
 
+    @Test fun `editable groups only the integer part`() =
+        assertEquals("1 234,5678", ru.editable("1234.5678").text.plain())
+
+    @Test fun `raw to display skips group separators`() {
+        val f = ru.editable("1234")
+        // "1 234": raw 1 (before "2") is display 2 (after the space).
+        assertEquals(listOf(0, 2, 3, 4, 5), f.rawToDisplay.toList())
+    }
+
+    @Test fun `display to raw maps taps back`() {
+        val f = ru.editable("12+3")
+        // "12 + 3": a tap inside " + " lands before or after the operator.
+        assertEquals(listOf(0, 1, 2, 2, 3, 3, 4), f.displayToRaw.toList())
+    }
+
+    @Test fun `editable keeps a leading decimal point`() = assertEquals(",5", ru.editable(".5").text)
+
     @Test fun `expression spacing and minus sign`() =
         assertEquals("1 200 + 8% − 3 × 2", ru.expression("1200+8%-3×2").plain())
 }

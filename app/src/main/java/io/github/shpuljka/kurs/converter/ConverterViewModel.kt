@@ -95,6 +95,10 @@ class ConverterViewModel(app: Application) : AndroidViewModel(app) {
 
     fun press(key: Key) = updateModel { it.press(key) }
 
+    fun moveCursor(position: Int) = updateModel { it.moveCursor(position) }
+
+    fun selectAll() = updateModel { it.selectAll() }
+
     fun select(index: Int) = _state.update { it.copy(model = it.model.select(index, it.rates)) }
 
     fun remove(index: Int) = _state.update { it.copy(model = it.model.remove(index, it.rates)) }

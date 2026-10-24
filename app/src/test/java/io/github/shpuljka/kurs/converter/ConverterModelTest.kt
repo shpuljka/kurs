@@ -63,6 +63,34 @@ class ConverterModelTest {
         assertEquals("10", m.expr)
     }
 
+    @Test fun `selected row's amount is fully selected, typing replaces it`() {
+        val m = ConverterModel(listOf("RUB", "EUR"), expr = "1000").select(1, rates)
+        assertEquals(0 to 2, m.selStart to m.selEnd)
+        assertEquals("7", m.press(Key.Digit('7')).expr)
+    }
+
+    @Test fun `start amount is selected so the first digit replaces it`() =
+        assertEquals("5", ConverterModel.initial("RUB").press(Key.Digit('5')).expr)
+
+    @Test fun `after typing the cursor sits at the end`() {
+        val m = ConverterModel.initial("RUB").press(Key.Digit('5')).press(Key.Digit('0'))
+        assertEquals("50", m.expr)
+        assertEquals(2 to 2, m.selStart to m.selEnd)
+    }
+
+    @Test fun `cursor placed in the middle edits there`() {
+        val m = ConverterModel(listOf("RUB", "USD"), expr = "150").moveCursor(1).press(Key.Digit('2'))
+        assertEquals("1250", m.expr)
+        assertEquals(2, m.selStart)
+    }
+
+    @Test fun `cursor position is clamped`() = assertEquals(3, ConverterModel(listOf("RUB", "USD"), expr = "150").moveCursor(99).selStart)
+
+    @Test fun `select all after placing the cursor`() {
+        val m = ConverterModel(listOf("RUB", "USD"), expr = "150").moveCursor(1).selectAll()
+        assertEquals(0 to 3, m.selStart to m.selEnd)
+    }
+
     @Test fun `selecting a negative value seeds zero`() =
         assertEquals("0", ConverterModel(listOf("RUB", "USD"), expr = "5-10").select(1, rates).expr)
 

@@ -54,6 +54,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.shpuljka.kurs.R
+import io.github.shpuljka.kurs.data.CurrencyCatalog
 import io.github.shpuljka.kurs.data.CurrencyInfo
 import io.github.shpuljka.kurs.ui.CurrencyFlag
 import io.github.shpuljka.kurs.ui.theme.KursShapes
@@ -116,7 +117,7 @@ private fun PickerContent(
     val c = KursTheme.colors
     var query by rememberSaveable { mutableStateOf("") }
     var crypto by rememberSaveable { mutableStateOf(false) }
-    val filtered = remember(currencies, query) { currencies.filter { it.matches(query) } }
+    val filtered = remember(currencies, query) { CurrencyCatalog.search(currencies, query) }
     val available = remember(currencies) { currencies.mapTo(HashSet()) { it.code } }
     val recentShown = recent.filter { it in available }
 

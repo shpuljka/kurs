@@ -40,6 +40,7 @@ import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -199,6 +200,8 @@ fun SettingsScreen(
         TimeDialog(state.digest.time, onPick = { onTime(it); timeDialog = false }, onDismiss = { timeDialog = false })
     }
     pairFrom?.let { from ->
+        // A fresh sheet per step: the first step's sheet is hidden by the time it reports the pick.
+        key(from) {
         val locale = LocalConfiguration.current.locales[0]
         val currencies = remember(state.codes, locale, from) {
             CurrencyCatalog.list(state.codes, locale).filter { it.code != from }
@@ -218,6 +221,7 @@ fun SettingsScreen(
             },
             onDismiss = { pairFrom = null },
         )
+        }
     }
 }
 

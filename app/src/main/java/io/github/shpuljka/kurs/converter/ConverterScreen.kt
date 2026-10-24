@@ -31,6 +31,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.filter
 import io.github.shpuljka.kurs.R
 import io.github.shpuljka.kurs.calc.AmountFormat
 import io.github.shpuljka.kurs.calc.Calculator
@@ -62,6 +65,8 @@ fun ConverterRoute(onSettings: () -> Unit, viewModel: ConverterViewModel = viewM
         state = state,
         onKey = viewModel::press,
         onSelect = viewModel::select,
+        onCursor = viewModel::moveCursor,
+        onSelectAll = viewModel::selectAll,
         onRemove = viewModel::remove,
         onChipClick = { pickerFor = it },
         onAdd = { pickerFor = ADD_ROW },
@@ -97,6 +102,8 @@ fun ConverterScreen(
     state: ConverterUiState,
     onKey: (io.github.shpuljka.kurs.calc.Key) -> Unit,
     onSelect: (Int) -> Unit,
+    onCursor: (Int) -> Unit,
+    onSelectAll: () -> Unit,
     onRemove: (Int) -> Unit,
     onChipClick: (Int) -> Unit,
     onAdd: () -> Unit,
@@ -128,20 +135,18 @@ fun ConverterScreen(
             itemsIndexed(model.codes, key = { _, code -> code }) { index, code ->
                 val active = index == model.active
                 val value = values[index]
-                val amount = when {
-                    active && !Calculator.hasOperation(model.expr) -> format.typed(model.expr)
-                    value == null -> noValue
-                    else -> format.amount(value, Currencies.fractionDigits(code))
-                }
-                val expression = if (active && Calculator.hasOperation(model.expr)) format.expression(model.expr) else null
+                val amount = if (value == null) noValue else format.amount(value, Currencies.fractionDigits(code))
+                val input = if (active) AmountInput(format.editable(model.expr), model.selStart, model.selEnd) else null
                 SwipeToRemove(enabled = model.canRemove, onRemove = { onRemove(index) }, modifier = Modifier.animateItem()) {
                     CurrencyRow(
                         code = code,
                         amount = amount,
-                        expression = expression,
-                        active = active,
+                        input = input,
+                        showsExpression = Calculator.hasOperation(model.expr),
                         onChipClick = { onChipClick(index) },
                         onSelect = { onSelect(index) },
+                        onCursor = onCursor,
+                        onSelectAll = onSelectAll,
                     )
                 }
             }
@@ -193,8 +198,14 @@ private fun Header(country: String?, locale: Locale, onSettings: () -> Unit) {
 private fun SwipeToRemove(enabled: Boolean, onRemove: () -> Unit, modifier: Modifier, content: @Composable () -> Unit) {
     val c = KursTheme.colors
     val dismiss = rememberSwipeToDismissBoxState()
-    LaunchedEffect(dismiss.currentValue) {
-        if (dismiss.currentValue == SwipeToDismissBoxValue.EndToStart) onRemove()
+    val remove by rememberUpdatedState(onRemove)
+    LaunchedEffect(dismiss) {
+        // The state is saved per row key (the currency code). A currency removed and later added
+        // back restores "dismissed" — reset it instead of removing the row again.
+        if (dismiss.currentValue != SwipeToDismissBoxValue.Settled) dismiss.snapTo(SwipeToDismissBoxValue.Settled)
+        snapshotFlow { dismiss.currentValue }
+            .filter { it == SwipeToDismissBoxValue.EndToStart }
+            .collect { remove() }
     }
     SwipeToDismissBox(
         state = dismiss,

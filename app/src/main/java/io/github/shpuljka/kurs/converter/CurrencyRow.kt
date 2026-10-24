@@ -1,5 +1,19 @@
 package io.github.shpuljka.kurs.converter
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextLayoutResult
+import io.github.shpuljka.kurs.calc.Formatted
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,18 +50,30 @@ import io.github.shpuljka.kurs.ui.theme.KursShapes
 import io.github.shpuljka.kurs.ui.theme.KursTheme
 import io.github.shpuljka.kurs.ui.theme.Nunito
 
-/** One currency row: picker chip on the start side, amount on the end side. spec.md §1.1, §8.3. */
+/** The active row's expression with its cursor/selection; offsets are into the raw expression. */
+class AmountInput(val formatted: Formatted, val selStart: Int, val selEnd: Int) {
+    val length: Int get() = formatted.rawToDisplay.size - 1
+}
+
+/**
+ * One currency row: picker chip on the start side, amount on the end side. spec.md §1.1, §8.3.
+ * The active row gets [input]: shown big while it is a plain number, or as the small line above
+ * the result once it has an operation. Tapping it places the cursor, double tap selects all.
+ */
 @Composable
 fun CurrencyRow(
     code: String,
     amount: String,
-    expression: String?,
-    active: Boolean,
+    input: AmountInput?,
+    showsExpression: Boolean,
     onChipClick: () -> Unit,
     onSelect: () -> Unit,
+    onCursor: (Int) -> Unit,
+    onSelectAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val c = KursTheme.colors
+    val active = input != null
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -78,27 +104,90 @@ fun CurrencyRow(
         }
 
         val typeDescription = stringResource(R.string.type_into, code)
+        val amountStyle = AmountTextStyle.copy(color = c.fg, textAlign = TextAlign.End)
+        val amountSize = TextAutoSize.StepBased(minFontSize = 16.sp, maxFontSize = 28.sp)
         Column(
             modifier = Modifier
                 .weight(1f)
-                .clickable(role = Role.Button, onClick = onSelect)
-                .semantics { contentDescription = typeDescription },
+                .then(
+                    if (input == null) {
+                        Modifier.clickable(role = Role.Button, onClick = onSelect).semantics { contentDescription = typeDescription }
+                    } else {
+                        // Taps beside the text put the cursor at the end.
+                        Modifier.clickable(indication = null, interactionSource = null) { onCursor(input.length) }
+                    },
+                ),
             horizontalAlignment = Alignment.End,
         ) {
-            if (expression != null) {
-                Text(
-                    expression,
-                    maxLines = 1,
-                    style = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = c.accentText),
-                )
+            when {
+                input == null -> BasicText(amount, maxLines = 1, autoSize = amountSize, style = amountStyle, modifier = Modifier.fillMaxWidth())
+                showsExpression -> {
+                    EditableAmount(
+                        input,
+                        TextStyle(fontFamily = Nunito, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = c.accentText, textAlign = TextAlign.End),
+                        autoSize = null,
+                        onCursor = onCursor,
+                        onSelectAll = onSelectAll,
+                    )
+                    BasicText(amount, maxLines = 1, autoSize = amountSize, style = amountStyle, modifier = Modifier.fillMaxWidth())
+                }
+                else -> EditableAmount(input, amountStyle, amountSize, onCursor, onSelectAll)
             }
-            BasicText(
-                amount,
-                maxLines = 1,
-                autoSize = TextAutoSize.StepBased(minFontSize = 16.sp, maxFontSize = 28.sp),
-                style = AmountTextStyle.copy(color = c.fg, textAlign = TextAlign.End),
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
     }
+}
+
+/** Expression text with a blinking cursor or a highlighted selection, drawn from its text layout. */
+@Composable
+private fun EditableAmount(
+    input: AmountInput,
+    style: TextStyle,
+    autoSize: TextAutoSize?,
+    onCursor: (Int) -> Unit,
+    onSelectAll: () -> Unit,
+) {
+    val c = KursTheme.colors
+    val f = input.formatted
+    val empty = f.text.isEmpty()
+    val text = if (empty) "0" else f.text
+    val start = if (empty) 0 else f.rawToDisplay[input.selStart.coerceIn(0, input.length)]
+    val end = if (empty) 1 else f.rawToDisplay[input.selEnd.coerceIn(0, input.length)]
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    // Solid right after each edit or cursor move, then blinking, like a regular text field.
+    val blink = remember { Animatable(1f) }
+    LaunchedEffect(f, input.selStart, input.selEnd) {
+        while (true) {
+            blink.snapTo(1f)
+            delay(500)
+            blink.snapTo(0f)
+            delay(500)
+        }
+    }
+    BasicText(
+        text,
+        maxLines = 1,
+        autoSize = autoSize,
+        style = if (empty) style.copy(color = style.color.copy(alpha = 0.4f)) else style,
+        onTextLayout = { layout = it },
+        modifier = Modifier
+            .fillMaxWidth()
+            .pointerInput(f) {
+                detectTapGestures(
+                    onTap = { pos -> layout?.let { onCursor(if (empty) 0 else f.displayToRaw[it.getOffsetForPosition(pos)]) } },
+                    onDoubleTap = { onSelectAll() },
+                )
+            }
+            .drawWithContent {
+                val l = layout
+                if (l != null && start != end) {
+                    drawPath(l.getPathForRange(minOf(start, end), maxOf(start, end)), c.accent.copy(alpha = 0.28f))
+                }
+                drawContent()
+                if (l != null && start == end) {
+                    val r = l.getCursorRect(start)
+                    val w = 2.dp.toPx()
+                    drawRect(c.accent.copy(alpha = blink.value), topLeft = Offset(r.left - w / 2, r.top), size = Size(w, r.height))
+                }
+            },
+    )
 }

@@ -24,5 +24,10 @@ class CurrencyCatalogTest {
 
     @Test fun `search by english name`() = assertEquals(listOf("TRY"), search("lira"))
 
+    @Test fun `exact code ranks before other matches`() {
+        val all = CurrencyCatalog.list(listOf("AWG", "BYN", "RUB"), Locale.ENGLISH)
+        assertEquals("RUB", CurrencyCatalog.search(all, "rub").first().code)
+    }
+
     @Test fun `search by issuer country`() = assertEquals(listOf("TRY"), search("Турция"))
 }
