@@ -27,6 +27,9 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +45,8 @@ import io.github.shpuljka.kurs.R
 import io.github.shpuljka.kurs.calc.AmountFormat
 import io.github.shpuljka.kurs.calc.Calculator
 import io.github.shpuljka.kurs.data.Currencies
+import io.github.shpuljka.kurs.data.CurrencyCatalog
+import io.github.shpuljka.kurs.picker.CurrencyPicker
 import io.github.shpuljka.kurs.ui.theme.KursShapes
 import io.github.shpuljka.kurs.ui.theme.KursTheme
 import java.time.LocalDate
@@ -51,17 +56,41 @@ import java.util.Locale
 @Composable
 fun ConverterRoute(viewModel: ConverterViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Row index whose currency is being changed, ADD_ROW when adding, null when the picker is closed.
+    var pickerFor by rememberSaveable { mutableStateOf<Int?>(null) }
     ConverterScreen(
         state = state,
         onKey = viewModel::press,
         onSelect = viewModel::select,
         onRemove = viewModel::remove,
-        onChipClick = { /* Currency picker: next step. */ },
-        onAdd = viewModel::addNext,
+        onChipClick = { pickerFor = it },
+        onAdd = { pickerFor = ADD_ROW },
         onRefresh = viewModel::refresh,
         onSettings = { /* Settings screen: later step. */ },
     )
+    pickerFor?.let { target ->
+        val adding = target == ADD_ROW
+        val locale = LocalConfiguration.current.locales[0]
+        val onScreen = state.model.codes
+        val codes = state.rates?.perUsd?.keys ?: (Currencies.POPULAR + onScreen).toSet()
+        val currencies = remember(codes, locale, onScreen, adding) {
+            // When adding, currencies already on screen are left out; when changing a row, picking one swaps rows.
+            CurrencyCatalog.list(codes, locale).filter { !adding || it.code !in onScreen }
+        }
+        CurrencyPicker(
+            currencies = currencies,
+            recent = state.recent,
+            selected = if (adding) null else onScreen.getOrNull(target),
+            onPick = { code ->
+                viewModel.pick(target.takeUnless { adding }, code)
+                pickerFor = null
+            },
+            onDismiss = { pickerFor = null },
+        )
+    }
 }
+
+private const val ADD_ROW = -1
 
 @Composable
 fun ConverterScreen(

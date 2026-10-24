@@ -24,8 +24,4 @@ object Currencies {
     /** ISO 4217 minor units; 2 when unknown. */
     fun fractionDigits(code: String): Int =
         runCatching { Currency.getInstance(code).defaultFractionDigits }.getOrNull()?.takeIf { it >= 0 } ?: 2
-
-    /** Interim flag until circle-flags are bundled: regional-indicator emoji of the issuer. */
-    fun flagEmoji(code: String): String =
-        code.take(2).uppercase().map { Character.toChars(0x1F1E6 + (it - 'A')).concatToString() }.joinToString("")
 }

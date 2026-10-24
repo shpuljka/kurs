@@ -22,4 +22,17 @@
     <string name="key_plus">Плюс</string>
     <string name="key_decimal">Запятая</string>
     <string name="key_equals">Равно</string>
+
+    <string name="picker_title">Какая валюта?</string>
+    <string name="close">Закрыть</string>
+    <string name="search_currency">Поиск валюты</string>
+    <string name="search_hint">Код, страна или название</string>
+    <string name="tab_fiat">Обычные</string>
+    <string name="tab_crypto">Крипто</string>
+    <string name="recent">Недавние</string>
+    <string name="all_currencies">Все валюты</string>
+    <string name="nothing_found">Такой валюты не нашлось</string>
+    <string name="selected">Выбрано</string>
+    <string name="crypto_soon_note">Крипта уже в планах! Добавим в следующей версии.</string>
+    <string name="soon">скоро</string>
 </resources>

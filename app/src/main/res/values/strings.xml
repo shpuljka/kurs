@@ -24,4 +24,17 @@
     <string name="key_plus">Plus</string>
     <string name="key_decimal">Decimal point</string>
     <string name="key_equals">Equals</string>
+
+    <string name="picker_title">Which currency?</string>
+    <string name="close">Close</string>
+    <string name="search_currency">Search currency</string>
+    <string name="search_hint">Code, country or name</string>
+    <string name="tab_fiat">Currencies</string>
+    <string name="tab_crypto">Crypto</string>
+    <string name="recent">Recent</string>
+    <string name="all_currencies">All currencies</string>
+    <string name="nothing_found">No such currency</string>
+    <string name="selected">Selected</string>
+    <string name="crypto_soon_note">Crypto is on the way — coming in the next version.</string>
+    <string name="soon">soon</string>
 </resources>

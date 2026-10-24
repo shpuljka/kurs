@@ -5,7 +5,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.shpuljka.kurs.calc.Key
 import io.github.shpuljka.kurs.data.CountryDetector
-import io.github.shpuljka.kurs.data.Currencies
 import io.github.shpuljka.kurs.data.Rates
 import io.github.shpuljka.kurs.data.RatesRepository
 import kotlinx.coroutines.Job
@@ -33,6 +32,8 @@ data class ConverterUiState(
     val country: String?,
     val rates: Rates? = null,
     val status: RatesStatus = RatesStatus.Loading,
+    /** Most recently picked first; seeded with the rows on screen. */
+    val recent: List<String> = model.codes,
 )
 
 class ConverterViewModel(app: Application) : AndroidViewModel(app) {
@@ -77,9 +78,16 @@ class ConverterViewModel(app: Application) : AndroidViewModel(app) {
 
     fun remove(index: Int) = _state.update { it.copy(model = it.model.remove(index, it.rates)) }
 
-    /** Until the currency picker exists: add the next popular currency not on screen. */
-    fun addNext() = updateModel { model ->
-        Currencies.POPULAR.firstOrNull { it !in model.codes }?.let(model::add) ?: model
+    /** From the currency picker: replace row [index], or add a row when [index] is null. */
+    fun pick(index: Int?, code: String) = _state.update {
+        it.copy(
+            model = if (index == null) it.model.add(code) else it.model.replace(index, code),
+            recent = (listOf(code) + it.recent).distinct().take(RECENT_LIMIT),
+        )
+    }
+
+    private companion object {
+        const val RECENT_LIMIT = 6
     }
 
     private inline fun updateModel(crossinline change: (ConverterModel) -> ConverterModel) =
