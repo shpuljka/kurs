@@ -88,6 +88,16 @@ class AppPreferences(context: Context) {
         }
     }
 
+    /**
+     * App language tag ("" = system). AppCompat owns the real setting; this copy lets background
+     * work localize notifications on Android 10–12, where AppCompat only localizes activities.
+     */
+    val language: Flow<String> = store.data.map { it[LANGUAGE].orEmpty() }
+
+    suspend fun setLanguage(tag: String) {
+        store.edit { it[LANGUAGE] = tag }
+    }
+
     suspend fun setTheme(mode: ThemeMode) {
         store.edit { it[THEME] = mode.name }
     }
@@ -107,6 +117,7 @@ class AppPreferences(context: Context) {
         val RECENT = stringPreferencesKey("recent")
         val LAST_LOCAL = stringPreferencesKey("last_local")
         val THEME = stringPreferencesKey("theme")
+        val LANGUAGE = stringPreferencesKey("language")
         val DIGEST_ENABLED = booleanPreferencesKey("digest_enabled")
         val DIGEST_MINUTES = intPreferencesKey("digest_minutes")
         val DIGEST_PAIRS = stringPreferencesKey("digest_pairs")

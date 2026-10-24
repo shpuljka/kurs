@@ -301,7 +301,7 @@ private fun CurrencyItem(info: CurrencyInfo, selected: Boolean, onPick: (String)
                 modifier = Modifier.size(28.dp).clip(CircleShape).background(c.accent),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(painterResource(R.drawable.ic_check), contentDescription = stringResource(R.string.selected), tint = c.onAccent, modifier = Modifier.size(16.dp))
+                Icon(painterResource(R.drawable.ic_check), contentDescription = stringResource(R.string.currency_selected), tint = c.onAccent, modifier = Modifier.size(16.dp))
             }
         }
     }

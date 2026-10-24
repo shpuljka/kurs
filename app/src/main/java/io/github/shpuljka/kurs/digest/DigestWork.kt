@@ -1,6 +1,8 @@
 package io.github.shpuljka.kurs.digest
 
 import android.content.Context
+import android.content.res.Configuration
+import android.os.LocaleList
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -64,13 +66,21 @@ object DigestScheduler {
 
 class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val settings = AppPreferences(applicationContext).digestOrDefault()
+        val prefs = AppPreferences(applicationContext)
+        val settings = prefs.digestOrDefault()
         if (!settings.enabled) return Result.success()
         val digest = DigestRepository(applicationContext).load(settings.pairs)
         if (digest == null && runAttemptCount < MAX_ATTEMPTS) return Result.retry()
-        digest?.let { DigestNotifier.show(applicationContext, it) }
+        digest?.let { DigestNotifier.show(localized(prefs.language.first()), it) }
         DigestScheduler.scheduleNext(applicationContext, settings.time)
         return Result.success()
+    }
+
+    /** The app's chosen language for notification text; [applicationContext] follows the system. */
+    private fun localized(tag: String): Context {
+        if (tag.isEmpty()) return applicationContext
+        val config = Configuration(applicationContext.resources.configuration).apply { setLocales(LocaleList.forLanguageTags(tag)) }
+        return applicationContext.createConfigurationContext(config)
     }
 
     private companion object {

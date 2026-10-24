@@ -32,7 +32,7 @@
     <string name="recent">Недавние</string>
     <string name="all_currencies">Все валюты</string>
     <string name="nothing_found">Такой валюты не нашлось</string>
-    <string name="selected">Выбрано</string>
+    <string name="currency_selected">Выбрано</string>
     <string name="crypto_soon_note">Крипта уже в планах! Добавим в следующей версии.</string>
     <string name="soon">скоро</string>
 

@@ -7,7 +7,7 @@
     <string name="change_currency">Change currency %1$s</string>
     <string name="type_into">Type in %1$s</string>
     <string name="remove_currency">Remove</string>
-    <string name="no_value">—</string>
+    <string name="no_value" translatable="false">—</string>
 
     <string name="rates_as_of">Rates as of %1$s</string>
     <string name="rates_loading">Loading rates…</string>
@@ -34,7 +34,7 @@
     <string name="recent">Recent</string>
     <string name="all_currencies">All currencies</string>
     <string name="nothing_found">No such currency</string>
-    <string name="selected">Selected</string>
+    <string name="currency_selected">Selected</string>
     <string name="crypto_soon_note">Crypto is on the way — coming in the next version.</string>
     <string name="soon">soon</string>
 
@@ -48,7 +48,7 @@
     <string name="digest_title">Morning rates</string>
     <string name="digest_subtitle">A daily push with your pairs</string>
     <string name="digest_time">Time</string>
-    <string name="digest_preview">%1$s · %2$s</string>
+    <string name="digest_preview" translatable="false">%1$s · %2$s</string>
     <string name="digest_channel">Daily rates digest</string>
     <string name="add_pair">Add pair</string>
     <string name="remove_pair">Remove %1$s</string>

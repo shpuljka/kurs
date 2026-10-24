@@ -60,6 +60,7 @@ class SettingsViewModel(private val app: Application) : AndroidViewModel(app) {
     /** AppCompat stores it (system per-app language on 13+, its own storage before). */
     fun setLanguage(tag: String) {
         _state.update { it.copy(language = tag) }
+        viewModelScope.launch { prefs.setLanguage(tag) }
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag))
     }
 
