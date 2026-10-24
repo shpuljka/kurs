@@ -2,5 +2,24 @@
 <resources>
     <string name="converter_title">Конвертер</string>
     <string name="settings">Настройки</string>
-    <string name="placeholder_body">Скоро здесь будет конвертер</string>
+    <string name="add_currency">Ещё валюта</string>
+    <string name="change_currency">Сменить валюту %1$s</string>
+    <string name="type_into">Вводить в %1$s</string>
+    <string name="remove_currency">Удалить</string>
+
+    <string name="rates_as_of">Курс на %1$s</string>
+    <string name="rates_loading">Загружаем курсы…</string>
+    <string name="rates_offline">нет соединения</string>
+    <string name="rates_unavailable">Нет курсов — проверьте соединение</string>
+    <string name="refresh_rates">Обновить курсы</string>
+
+    <string name="key_clear">Очистить</string>
+    <string name="key_percent">Процент</string>
+    <string name="key_backspace">Стереть</string>
+    <string name="key_divide">Разделить</string>
+    <string name="key_multiply">Умножить</string>
+    <string name="key_minus">Минус</string>
+    <string name="key_plus">Плюс</string>
+    <string name="key_decimal">Запятая</string>
+    <string name="key_equals">Равно</string>
 </resources>
