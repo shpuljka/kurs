@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="converter_title">Конвертер</string>
+    <string name="settings">Настройки</string>
+    <string name="placeholder_body">Скоро здесь будет конвертер</string>
+</resources>

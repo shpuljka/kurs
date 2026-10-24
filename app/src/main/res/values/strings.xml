@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Kurs</string>
+    <string name="converter_title">Converter</string>
+    <string name="settings">Settings</string>
+    <string name="placeholder_body">The converter is coming soon</string>
+</resources>

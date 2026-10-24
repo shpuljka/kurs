@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="window_background">#F4F1FB</color>
+    <color name="ic_launcher_background">#5B4BD6</color>
+
+    <style name="Theme.Kurs" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
+</resources>
