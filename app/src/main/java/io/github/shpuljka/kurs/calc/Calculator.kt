@@ -39,7 +39,8 @@ object Calculator {
     private val HUNDRED = BigDecimal(100)
     private val TOKEN = Regex("""\d+(?:\.\d*)?%?|\.\d+%?|[+\-×÷]""")
 
-    fun hasOperation(expr: String): Boolean = expr.any { it in OPERATORS || it == '%' }
+    /** An operator or `%` beyond a leading minus sign (a negative number alone is not an operation). */
+    fun hasOperation(expr: String): Boolean = expr.withIndex().any { (i, ch) -> (ch in OPERATORS && i > 0) || ch == '%' }
 
     /** Applies a key with the cursor at the end of [expr]. */
     fun press(expr: String, key: Key): String = edit(Editing(expr), key).text
@@ -55,9 +56,13 @@ object Calculator {
             Key.Clear -> Editing("")
             Key.Equals -> Editing(text)
             Key.Backspace -> when {
-                e.hasSelection -> Editing(text.removeRange(e.min, e.max), e.min)
+                e.hasSelection -> Editing(text.removeRange(e.min, e.max), e.min).takeIf { isWellFormed(it.text) } ?: e
                 e.min == 0 -> e
-                else -> Editing(text.removeRange(e.min - 1, e.min), e.min - 1)
+                else -> {
+                    val deleted = text.removeRange(e.min - 1, e.min)
+                    // Deleting would break the expression (e.g. merge "1.5" and "2.5"): step over instead.
+                    if (isWellFormed(deleted)) Editing(deleted, e.min - 1) else Editing(text, e.min - 1)
+                }
             }
             is Key.Op -> insertOperator(text, if (e.hasSelection) e.max else e.min, key.symbol) ?: e
             Key.Percent -> insertPercent(text, if (e.hasSelection) e.max else e.min) ?: e
@@ -66,6 +71,24 @@ object Calculator {
                 val inserted = if (key is Key.Digit) insertDigit(base, e.min, key.char) else insertDecimal(base, e.min)
                 inserted ?: e
             }
+        }
+    }
+
+    /**
+     * Shape every edit keeps: no leading operator except a minus (a negative `=` result),
+     * no two operators in a row, and each number with at most one point, `%` only at its end
+     * and at most [MAX_DIGITS] digits.
+     */
+    fun isWellFormed(text: String): Boolean {
+        if (text.isEmpty()) return true
+        if (text[0] in OPERATORS && text[0] != '-') return false
+        val numbers = text.split('+', '-', '×', '÷')
+        return numbers.withIndex().all { (i, number) ->
+            val emptyAllowed = (i == 0 && text[0] == '-') || i == numbers.lastIndex
+            if (number.isEmpty()) return@all emptyAllowed
+            number.count { it == '.' } <= 1 &&
+                number.indexOf('%').let { it == -1 || it == number.lastIndex } &&
+                number.count { it.isDigit() } <= MAX_DIGITS
         }
     }
 
@@ -127,7 +150,8 @@ object Calculator {
         for (match in TOKEN.findAll(expr)) {
             val token = match.value
             if (token.length == 1 && token[0] in OPERATORS) {
-                op = token[0]
+                // A leading minus (only from a negative `=` result) negates the first number.
+                if (term == null && token[0] == '-') sign = BigDecimal.ONE.negate() else op = token[0]
                 continue
             }
             val percent = token.endsWith('%')

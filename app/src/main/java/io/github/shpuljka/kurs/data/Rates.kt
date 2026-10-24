@@ -11,8 +11,8 @@ data class Rates(val date: LocalDate, val perUsd: Map<String, BigDecimal>) {
     fun has(code: String): Boolean = code in perUsd
 
     fun convert(amount: BigDecimal, from: String, to: String): BigDecimal? {
-        val fromRate = perUsd[from] ?: return null
-        val toRate = perUsd[to] ?: return null
+        val fromRate = perUsd[from]?.takeIf { it.signum() > 0 } ?: return null
+        val toRate = perUsd[to]?.takeIf { it.signum() > 0 } ?: return null
         return amount.divide(fromRate, MathContext.DECIMAL64).multiply(toRate, MathContext.DECIMAL64)
     }
 }

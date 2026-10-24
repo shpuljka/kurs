@@ -20,6 +20,8 @@ class AmountFormatTest {
 
     @Test fun `whole amount has no decimals`() = assertEquals("100", ru.amount(BigDecimal("99.999"), 2))
 
+    @Test fun `negative amount uses the minus sign`() = assertEquals("−0,89", ru.amount(BigDecimal("-0.89"), 2))
+
     @Test fun `zero-digit currency`() = assertEquals("15 120", ru.amount(BigDecimal("15119.6"), 0).plain())
 
     @Test fun `typed keeps decimals verbatim`() = assertEquals("1 234,50", ru.typed("1234.50").plain())
@@ -42,6 +44,8 @@ class AmountFormatTest {
         // "12 + 3": a tap inside " + " lands before or after the operator.
         assertEquals(listOf(0, 1, 2, 2, 3, 3, 4), f.displayToRaw.toList())
     }
+
+    @Test fun `negative result has a tight minus sign`() = assertEquals("−5 + 3", ru.editable("-5+3").text)
 
     @Test fun `editable keeps a leading decimal point`() = assertEquals(",5", ru.editable(".5").text)
 

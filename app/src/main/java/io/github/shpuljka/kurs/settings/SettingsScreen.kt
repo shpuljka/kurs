@@ -180,6 +180,7 @@ fun SettingsScreen(
 
             DigestCard(
                 digest = state.digest,
+                loaded = state.loaded,
                 preview = state.preview,
                 blocked = notificationsBlocked,
                 onEnabled = onDigestEnabled,
@@ -310,6 +311,7 @@ private fun Pill(text: String, onClick: (() -> Unit)? = null) {
 @Composable
 private fun DigestCard(
     digest: DigestSettings,
+    loaded: Boolean,
     preview: Digest?,
     blocked: Boolean,
     onEnabled: (Boolean) -> Unit,
@@ -321,7 +323,7 @@ private fun DigestCard(
     val locale = LocalConfiguration.current.locales[0]
     Card {
         Row(
-            modifier = Modifier.toggleable(value = digest.enabled, role = Role.Switch, onValueChange = onEnabled),
+            modifier = Modifier.toggleable(value = digest.enabled, enabled = loaded, role = Role.Switch, onValueChange = onEnabled),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {

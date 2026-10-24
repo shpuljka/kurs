@@ -27,6 +27,7 @@ object RatesParser {
             .map { it.uppercase() to usd.get(it).toString() }
             .filter { (code, _) -> code in iso }
             .associate { (code, value) -> code to BigDecimal(value) }
+            .filterValues { it.signum() > 0 }
         return Rates(LocalDate.parse(root.getString("date")), rates + ("USD" to BigDecimal.ONE))
     }
 
@@ -35,7 +36,8 @@ object RatesParser {
         val root = JSONObject(json)
         check(root.optString("result") == "success") { "open.er-api: ${root.optString("error-type")}" }
         val obj = root.getJSONObject("rates")
-        val rates = obj.keys().asSequence().associateWith { BigDecimal(obj.get(it).toString()) }
+        // A zero or negative rate would break every conversion through it.
+        val rates = obj.keys().asSequence().associateWith { BigDecimal(obj.get(it).toString()) }.filterValues { it.signum() > 0 }
         val date = Instant.ofEpochSecond(root.getLong("time_last_update_unix")).atZone(ZoneOffset.UTC).toLocalDate()
         return Rates(date, rates)
     }

@@ -2,6 +2,7 @@ package io.github.shpuljka.kurs.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.math.BigDecimal
@@ -17,6 +18,15 @@ class RatesParserTest {
         assertEquals(0, BigDecimal.ONE.compareTo(r.perUsd["USD"]))
         assertFalse(r.has("BTC"))
     }
+
+    @Test fun `zero rates are dropped`() {
+        val r = RatesParser.fawazahmed("""{"date":"2026-10-23","usd":{"rub":0,"eur":0.9}}""")
+        assertFalse(r.has("RUB"))
+        assertNull(r.convert(BigDecimal.ONE, "USD", "RUB"))
+    }
+
+    @Test fun `convert never divides by a zero rate`() =
+        assertNull(Rates(LocalDate.of(2026, 10, 23), mapOf("USD" to BigDecimal.ONE, "XYZ" to BigDecimal.ZERO)).convert(BigDecimal.ONE, "XYZ", "USD"))
 
     @Test fun `open er-api`() {
         val r = RatesParser.openErApi("""{"result":"success","time_last_update_unix":1792800151,"rates":{"USD":1,"RUB":81.296693}}""")

@@ -118,16 +118,20 @@ def main(flags_dir: str, codes_file: str) -> None:
         if (flags / f"{name}.svg").exists():
             mapping[code] = name
 
-    for old in RES.glob("flag_*.xml"):
-        old.unlink()
-    resource = {}
+    # Convert everything first: an unsupported SVG must not leave the drawables half-regenerated.
+    resource, converted = {}, {}
     for name in sorted(set(mapping.values())):
         res_name = "flag_" + ("eu" if name == "european_union" else name)
         try:
-            (RES / f"{res_name}.xml").write_text(vector(flags / f"{name}.svg"))
+            converted[res_name] = vector(flags / f"{name}.svg")
         except ValueError as e:
-            sys.exit(f"{name}.svg: {e}")
+            sys.exit(f"{name}.svg: {e} (nothing was changed)")
         resource[name] = res_name
+
+    for old in RES.glob("flag_*.xml"):
+        old.unlink()
+    for res_name, xml in converted.items():
+        (RES / f"{res_name}.xml").write_text(xml)
 
     entries = "\n".join(f'    "{code}" to R.drawable.{resource[name]},' for code, name in sorted(mapping.items()))
     KOTLIN.parent.mkdir(parents=True, exist_ok=True)

@@ -53,6 +53,8 @@ class CalculatorTest {
         assertFalse(Calculator.hasOperation("120.5"))
         assertTrue(Calculator.hasOperation("120+"))
         assertTrue(Calculator.hasOperation("8%"))
+        assertFalse(Calculator.hasOperation("-5"))
+        assertTrue(Calculator.hasOperation("-5+1"))
     }
 
     // --- input rules ------------------------------------------------------
@@ -140,6 +142,43 @@ class CalculatorTest {
         assertEquals(Editing("123456789012", 3), edit("123456789012", 3, 3, d('7')))
 
     @Test fun `leading decimal point after editing still evaluates`() = assertEval("0.5", ".5")
+
+    @Test fun `negative result of equals stays negative`() {
+        val collapsed = Calculator.collapse("5-10", fractionDigits = 2)
+        assertEquals("-5", collapsed)
+        assertEval("-5", collapsed)
+        assertEval("-2", "$collapsed+3")
+    }
+
+    @Test fun `backspace on an operator never merges numbers into an invalid one`() {
+        // "1.5+|2.5": deleting "+" would give "1.52.5"; the cursor steps over it instead.
+        assertEquals(Editing("1.5+2.5", 3), edit("1.5+2.5", 4, 4, Key.Backspace))
+        assertEquals(Editing("5%+3", 2), edit("5%+3", 3, 3, Key.Backspace))
+    }
+
+    @Test fun `backspace that would leave a leading operator steps over`() =
+        assertEquals(Editing("5+3", 0), edit("5+3", 1, 1, Key.Backspace))
+
+    @Test fun `backspace that would put two operators together steps over`() =
+        assertEquals(Editing("5+2-3", 2), edit("5+2-3", 3, 3, Key.Backspace))
+
+    @Test fun `backspace of an operator between plain integers is fine`() =
+        assertEquals(Editing("53", 1), edit("5+3", 2, 2, Key.Backspace))
+
+    @Test fun `deleting an invalid selection does nothing`() =
+        assertEquals(Editing("1.5+2.5", 3, 4), edit("1.5+2.5", 3, 4, Key.Backspace))
+
+    @Test fun `well-formed check`() {
+        assertTrue(Calculator.isWellFormed(""))
+        assertTrue(Calculator.isWellFormed("-5+3"))
+        assertTrue(Calculator.isWellFormed("120+8%"))
+        assertTrue(Calculator.isWellFormed("12+"))
+        assertFalse(Calculator.isWellFormed("+3"))
+        assertFalse(Calculator.isWellFormed("5+-3"))
+        assertFalse(Calculator.isWellFormed("1.52.5"))
+        assertFalse(Calculator.isWellFormed("5%3"))
+        assertFalse(Calculator.isWellFormed("1234567890123"))
+    }
 
     // --- collapse (=) -----------------------------------------------------
 

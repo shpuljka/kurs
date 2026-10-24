@@ -9,9 +9,11 @@ import io.github.shpuljka.kurs.KursApp
 import io.github.shpuljka.kurs.data.AppPreferences
 import io.github.shpuljka.kurs.data.CurrencyPair
 import io.github.shpuljka.kurs.data.DigestSettings
+import io.github.shpuljka.kurs.data.Currencies
+import io.github.shpuljka.kurs.data.Rates
 import io.github.shpuljka.kurs.data.RatesRepository
 import io.github.shpuljka.kurs.digest.Digest
-import io.github.shpuljka.kurs.digest.DigestRepository
+import io.github.shpuljka.kurs.digest.DigestBuilder
 import io.github.shpuljka.kurs.digest.DigestScheduler
 import io.github.shpuljka.kurs.digest.digestOrDefault
 import io.github.shpuljka.kurs.ui.theme.ThemeMode
@@ -31,22 +33,30 @@ data class SettingsUiState(
     val language: String = "",
     val digest: DigestSettings = DigestSettings(),
     val preview: Digest? = null,
-    /** Currencies with rates, for the pair picker. */
-    val codes: Set<String> = emptySet(),
+    /** Currencies with rates, for the pair picker (popular ones until rates are known). */
+    val codes: Set<String> = Currencies.POPULAR.toSet(),
+    /** Stored settings are in; digest edits before that would overwrite them with defaults. */
+    val loaded: Boolean = false,
 )
 
 class SettingsViewModel(private val app: Application) : AndroidViewModel(app) {
     private val prefs = AppPreferences(app)
-    private val digests = DigestRepository(app)
+    private val rates = RatesRepository(File(app.filesDir, "rates.json"))
     private var previewJob: Job? = null
+    /** Preview inputs: today's rates (cache first) and yesterday's, fetched at most once per visit. */
+    private var today: Rates? = null
+    private var yesterday: Rates? = null
+    private var yesterdayLoaded = false
 
     private val _state = MutableStateFlow(SettingsUiState(language = AppCompatDelegate.getApplicationLocales().toLanguageTags()))
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
 
     init {
         viewModelScope.launch {
-            val codes = RatesRepository(File(app.filesDir, "rates.json")).cached()?.perUsd?.keys.orEmpty()
-            _state.update { it.copy(theme = prefs.theme.first(), digest = prefs.digestOrDefault(), codes = codes) }
+            today = rates.cached()
+            val theme = prefs.theme.first()
+            val digest = prefs.digestOrDefault()
+            _state.update { it.copy(theme = theme, digest = digest, codes = codesOf(today), loaded = true) }
             loadPreview()
         }
     }
@@ -76,20 +86,32 @@ class SettingsViewModel(private val app: Application) : AndroidViewModel(app) {
     fun removePair(pair: CurrencyPair) = updateDigest { it.copy(pairs = it.pairs - pair) }
 
     private fun updateDigest(change: (DigestSettings) -> DigestSettings) {
+        if (!_state.value.loaded) return
         val before = _state.value.digest
         val after = change(before)
         if (after == before) return
         _state.update { it.copy(digest = after) }
         viewModelScope.launch { prefs.setDigest(after) }
         DigestScheduler.apply(app, after)
-        if (after.pairs != before.pairs) loadPreview()
+        if (after.pairs != before.pairs || after.enabled != before.enabled) loadPreview()
     }
 
+    /** Only while the digest is on (the preview is hidden otherwise); network only when the cache lacks it. */
     private fun loadPreview() {
         previewJob?.cancel()
+        if (!_state.value.digest.enabled) return
         previewJob = viewModelScope.launch {
-            val preview = digests.load(_state.value.digest.pairs)
-            _state.update { it.copy(preview = preview) }
+            val now = today ?: rates.refresh()?.also { fetched ->
+                today = fetched
+                _state.update { it.copy(codes = codesOf(fetched)) }
+            } ?: return@launch
+            if (!yesterdayLoaded) {
+                yesterday = rates.history(now.date.minusDays(1))
+                yesterdayLoaded = true
+            }
+            _state.update { it.copy(preview = DigestBuilder.build(it.digest.pairs, now, yesterday)) }
         }
     }
+
+    private fun codesOf(rates: Rates?): Set<String> = rates?.perUsd?.keys ?: Currencies.POPULAR.toSet()
 }

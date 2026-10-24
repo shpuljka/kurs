@@ -115,6 +115,8 @@ fun ConverterScreen(
     val format = remember(locale) { AmountFormat(locale) }
     val model = state.model
     val values = model.values(state.rates)
+    // Same instance while the expression is unchanged, so the cursor's effects and tap detector don't restart.
+    val editable = remember(format, model.expr) { format.editable(model.expr) }
     val noValue = stringResource(R.string.no_value)
 
     Column(
@@ -136,7 +138,7 @@ fun ConverterScreen(
                 val active = index == model.active
                 val value = values[index]
                 val amount = if (value == null) noValue else format.amount(value, Currencies.fractionDigits(code))
-                val input = if (active) AmountInput(format.editable(model.expr), model.selStart, model.selEnd) else null
+                val input = if (active) AmountInput(editable, model.selStart, model.selEnd) else null
                 SwipeToRemove(enabled = model.canRemove, onRemove = { onRemove(index) }, modifier = Modifier.animateItem()) {
                     CurrencyRow(
                         code = code,

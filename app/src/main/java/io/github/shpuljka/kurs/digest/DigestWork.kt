@@ -2,6 +2,8 @@ package io.github.shpuljka.kurs.digest
 
 import android.content.Context
 import android.content.res.Configuration
+import android.os.Build
+import android.util.Log
 import android.os.LocaleList
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -14,6 +16,7 @@ import io.github.shpuljka.kurs.data.AppPreferences
 import io.github.shpuljka.kurs.data.CurrencyPair
 import io.github.shpuljka.kurs.data.DigestSettings
 import io.github.shpuljka.kurs.data.RatesRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.io.File
 import java.time.LocalTime
@@ -65,25 +68,47 @@ object DigestScheduler {
 }
 
 class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    /**
+     * Whatever goes wrong with today's digest, tomorrow's run is still queued: a failed or
+     * crashed run would otherwise end the chain until the user touches the digest settings.
+     */
     override suspend fun doWork(): Result {
         val prefs = AppPreferences(applicationContext)
-        val settings = prefs.digestOrDefault()
+        // Without settings we don't know the time; retrying (with backoff) keeps the chain alive.
+        val settings = attempt { prefs.digestOrDefault() } ?: return Result.retry()
         if (!settings.enabled) return Result.success()
-        val digest = DigestRepository(applicationContext).load(settings.pairs)
+        val digest = attempt { DigestRepository(applicationContext).load(settings.pairs) }
         if (digest == null && runAttemptCount < MAX_ATTEMPTS) return Result.retry()
-        digest?.let { DigestNotifier.show(localized(prefs.language.first()), it) }
+        digest?.let { attempt { DigestNotifier.show(localized(prefs), it) } }
         DigestScheduler.scheduleNext(applicationContext, settings.time)
         return Result.success()
     }
 
-    /** The app's chosen language for notification text; [applicationContext] follows the system. */
-    private fun localized(tag: String): Context {
+    /** Runs [block], turning failures (not cancellation) into null. */
+    private suspend fun <T> attempt(block: suspend () -> T): T? = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "Daily digest step failed", e)
+        null
+    }
+
+    /**
+     * Context in the app's language for notification text. On 13+ the system applies the
+     * per-app language (also when changed in system settings); before that only activities get
+     * AppCompat's language, so use the copy kept in preferences.
+     */
+    private suspend fun localized(prefs: AppPreferences): Context {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return applicationContext
+        val tag = prefs.language.first()
         if (tag.isEmpty()) return applicationContext
         val config = Configuration(applicationContext.resources.configuration).apply { setLocales(LocaleList.forLanguageTags(tag)) }
         return applicationContext.createConfigurationContext(config)
     }
 
     private companion object {
+        const val TAG = "DigestWorker"
         const val MAX_ATTEMPTS = 3
     }
 }

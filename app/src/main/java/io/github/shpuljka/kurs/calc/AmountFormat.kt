@@ -20,7 +20,8 @@ class AmountFormat(locale: Locale) {
         val digits = if (rounded.stripTrailingZeros().scale() <= 0) 0 else fractionDigits
         numbers.minimumFractionDigits = digits
         numbers.maximumFractionDigits = digits
-        return numbers.format(rounded)
+        // Same minus sign as in the typed expression.
+        return numbers.format(rounded).replace('-', '−')
     }
 
     /** A number as the user typed it: grouped integer part, decimals kept verbatim. */
@@ -59,6 +60,11 @@ class AmountFormat(locale: Locale) {
                     }
                     i = end
                     continue
+                }
+                ch == '-' && i == 0 -> {
+                    // Sign of a negative result, not a binary minus.
+                    rawToDisplay[i] = out.length
+                    out.append('−')
                 }
                 ch in Calculator.OPERATORS -> {
                     rawToDisplay[i] = out.length
