@@ -103,6 +103,34 @@ class ConverterModelTest {
         assertEquals("800", m.expr)
     }
 
+    @Test fun `travelling inserts the new local currency on top`() {
+        val m = ConverterModel(listOf("RUB", "USD", "EUR"), active = 1, expr = "50").withLocal("TRY")
+        assertEquals(listOf("TRY", "RUB", "USD", "EUR"), m.codes)
+        assertEquals("USD", m.codes[m.active])
+        assertEquals("50", m.expr)
+    }
+
+    @Test fun `travelling moves an existing currency to the top`() =
+        assertEquals(listOf("EUR", "RUB", "USD"), ConverterModel(listOf("RUB", "USD", "EUR")).withLocal("EUR").codes)
+
+    @Test fun `same local currency changes nothing`() {
+        val m = ConverterModel(listOf("RUB", "USD"))
+        assertSame(m, m.withLocal("RUB"))
+    }
+
+    @Test fun `travelling with 10 rows drops the last one`() {
+        val m = ConverterModel(List(10) { "C$it" }).withLocal("TRY")
+        assertEquals(10, m.codes.size)
+        assertEquals(listOf("TRY", "C0"), m.codes.take(2))
+        assertEquals("C8", m.codes.last())
+    }
+
+    @Test fun `if the active row is dropped, input restarts on the first row`() {
+        val m = ConverterModel(List(10) { "C$it" }, active = 9, expr = "7").withLocal("TRY")
+        assertEquals(0, m.active)
+        assertEquals("100", m.expr)
+    }
+
     @Test fun `replace changes the currency of a row`() =
         assertEquals(listOf("RUB", "GBP"), ConverterModel(listOf("RUB", "USD")).replace(1, "GBP").codes)
 

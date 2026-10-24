@@ -70,6 +70,22 @@ data class ConverterModel(
         else -> copy(codes = codes.toMutableList().apply { this[index] = code })
     }
 
+    /**
+     * Spec §3, travelling: the new country's currency becomes the first row and the rest shift down.
+     * The typed-into currency stays active. With all 10 rows taken, the last row makes room.
+     */
+    fun withLocal(code: String): ConverterModel {
+        if (codes.firstOrNull() == code) return this
+        val activeCode = codes[active]
+        val reordered = (listOf(code) + codes.filter { it != code }).take(MAX_ROWS)
+        val newActive = reordered.indexOf(activeCode)
+        return if (newActive >= 0) {
+            copy(codes = reordered, active = newActive)
+        } else {
+            ConverterModel(reordered, 0, START_AMOUNT)
+        }
+    }
+
     companion object {
         const val MAX_ROWS = 10
         const val MIN_ROWS = 2

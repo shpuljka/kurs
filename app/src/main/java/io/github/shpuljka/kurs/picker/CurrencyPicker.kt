@@ -73,6 +73,7 @@ fun CurrencyPicker(
     selected: String?,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
+    title: String = stringResource(R.string.picker_title),
 ) {
     val c = KursTheme.colors
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -99,12 +100,13 @@ fun CurrencyPicker(
             )
         },
     ) {
-        PickerContent(currencies, recent, selected, onPick = { close(it) }, onClose = { close(null) })
+        PickerContent(title, currencies, recent, selected, onPick = { close(it) }, onClose = { close(null) })
     }
 }
 
 @Composable
 private fun PickerContent(
+    title: String,
     currencies: List<CurrencyInfo>,
     recent: List<String>,
     selected: String?,
@@ -126,7 +128,7 @@ private fun PickerContent(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.picker_title), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+            Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
             IconButton(
                 onClick = onClose,
                 modifier = Modifier.size(44.dp).clip(CircleShape).background(c.surface),

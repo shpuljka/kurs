@@ -4,13 +4,19 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.shpuljka.kurs.calc.Key
+import io.github.shpuljka.kurs.data.AppPreferences
 import io.github.shpuljka.kurs.data.CountryDetector
 import io.github.shpuljka.kurs.data.Rates
 import io.github.shpuljka.kurs.data.RatesRepository
+import io.github.shpuljka.kurs.data.SavedConverter
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
@@ -36,24 +42,39 @@ data class ConverterUiState(
     val recent: List<String> = model.codes,
 )
 
+@OptIn(FlowPreview::class)
 class ConverterViewModel(app: Application) : AndroidViewModel(app) {
     private val repository = RatesRepository(File(app.filesDir, "rates.json"))
+    private val prefs = AppPreferences(app)
+    private val country = CountryDetector.country(app)
+    private val local: String? = country?.let(CountryDetector::currencyOf)
 
-    private val _state = MutableStateFlow(
-        CountryDetector.country(app).let { country ->
-            val local = country?.let(CountryDetector::currencyOf) ?: "USD"
-            ConverterUiState(ConverterModel.initial(local), country)
-        },
-    )
+    private val _state = MutableStateFlow(ConverterUiState(ConverterModel.initial(local ?: "USD"), country))
     val state: StateFlow<ConverterUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
 
     init {
         viewModelScope.launch {
+            restore()
+            _state
+                .map { SavedConverter(it.model, it.recent, local) }
+                .distinctUntilChanged()
+                .debounce(SAVE_DEBOUNCE_MS)
+                .collect { prefs.saveConverter(it) }
+        }
+        viewModelScope.launch {
             val cached = repository.cached()
             if (cached != null) _state.update { it.copy(rates = cached) }
             refresh()
         }
+    }
+
+    /** Rows from the last session; a new country's currency moves to the top (spec §3). */
+    private suspend fun restore() {
+        val saved = prefs.converter() ?: return
+        val travelled = local != null && saved.lastLocal != null && saved.lastLocal != local
+        val model = if (travelled) saved.model.withLocal(local!!) else saved.model
+        _state.update { it.copy(model = model, recent = saved.recent.ifEmpty { model.codes }) }
     }
 
     /** Spec §4: on every launch and by the refresh button. */
@@ -88,6 +109,7 @@ class ConverterViewModel(app: Application) : AndroidViewModel(app) {
 
     private companion object {
         const val RECENT_LIMIT = 6
+        const val SAVE_DEBOUNCE_MS = 300L
     }
 
     private inline fun updateModel(crossinline change: (ConverterModel) -> ConverterModel) =

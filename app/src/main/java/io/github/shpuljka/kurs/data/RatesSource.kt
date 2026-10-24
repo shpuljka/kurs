@@ -55,6 +55,12 @@ private class HttpSource(private val url: String, private val parse: (String) ->
     }
 }
 
+/** fawazahmed0 rates as of [date] (for the digest's day-over-day change); open.er-api has no history. */
+fun historySources(date: LocalDate): List<RatesSource> = listOf(
+    HttpSource("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@$date/v1/currencies/usd.min.json", RatesParser::fawazahmed),
+    HttpSource("https://$date.currency-api.pages.dev/v1/currencies/usd.min.json", RatesParser::fawazahmed),
+)
+
 /** Primary, its mirror, then the fallback provider. */
 val DEFAULT_SOURCES: List<RatesSource> = listOf(
     HttpSource("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json", RatesParser::fawazahmed),

@@ -35,4 +35,26 @@
     <string name="selected">Выбрано</string>
     <string name="crypto_soon_note">Крипта уже в планах! Добавим в следующей версии.</string>
     <string name="soon">скоро</string>
+
+    <string name="back">Назад</string>
+    <string name="theme">Тема</string>
+    <string name="theme_system">Авто</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="language">Язык</string>
+    <string name="language_system">Как в системе</string>
+    <string name="digest_title">Курсы каждое утро</string>
+    <string name="digest_subtitle">Пуш с выбранными парами</string>
+    <string name="digest_time">Время</string>
+    <string name="digest_channel">Ежедневная сводка курсов</string>
+    <string name="add_pair">Добавить пару</string>
+    <string name="remove_pair">Удалить %1$s</string>
+    <string name="pick_base">Из какой валюты?</string>
+    <string name="pick_quote">В какую валюту?</string>
+    <string name="notifications_blocked">Уведомления выключены в настройках системы</string>
+    <string name="rate_alert">Оповещение о курсе</string>
+    <string name="rates_update">Обновление курсов</string>
+    <string name="rates_update_on_launch">При запуске</string>
+    <string name="ok">ОК</string>
+    <string name="cancel">Отмена</string>
 </resources>

@@ -37,4 +37,27 @@
     <string name="selected">Selected</string>
     <string name="crypto_soon_note">Crypto is on the way — coming in the next version.</string>
     <string name="soon">soon</string>
+
+    <string name="back">Back</string>
+    <string name="theme">Theme</string>
+    <string name="theme_system">Auto</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="language">Language</string>
+    <string name="language_system">System default</string>
+    <string name="digest_title">Morning rates</string>
+    <string name="digest_subtitle">A daily push with your pairs</string>
+    <string name="digest_time">Time</string>
+    <string name="digest_preview">%1$s · %2$s</string>
+    <string name="digest_channel">Daily rates digest</string>
+    <string name="add_pair">Add pair</string>
+    <string name="remove_pair">Remove %1$s</string>
+    <string name="pick_base">From which currency?</string>
+    <string name="pick_quote">Into which currency?</string>
+    <string name="notifications_blocked">Notifications are turned off in system settings</string>
+    <string name="rate_alert">Rate alert</string>
+    <string name="rates_update">Rates update</string>
+    <string name="rates_update_on_launch">On launch</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
 </resources>

@@ -23,6 +23,11 @@ class RatesRepository(
         rates
     }
 
+    /** Rates as they were on [date], or null if unavailable. Not cached. */
+    suspend fun history(date: LocalDate): Rates? = withContext(Dispatchers.IO) {
+        historySources(date).firstNotNullOfOrNull { runCatching { it.fetch() }.getOrNull() }
+    }
+
     companion object {
         fun encode(rates: Rates): String = JSONObject()
             .put("date", rates.date.toString())

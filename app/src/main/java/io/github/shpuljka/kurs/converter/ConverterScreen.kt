@@ -54,7 +54,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun ConverterRoute(viewModel: ConverterViewModel = viewModel()) {
+fun ConverterRoute(onSettings: () -> Unit, viewModel: ConverterViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Row index whose currency is being changed, ADD_ROW when adding, null when the picker is closed.
     var pickerFor by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -66,7 +66,7 @@ fun ConverterRoute(viewModel: ConverterViewModel = viewModel()) {
         onChipClick = { pickerFor = it },
         onAdd = { pickerFor = ADD_ROW },
         onRefresh = viewModel::refresh,
-        onSettings = { /* Settings screen: later step. */ },
+        onSettings = onSettings,
     )
     pickerFor?.let { target ->
         val adding = target == ADD_ROW
