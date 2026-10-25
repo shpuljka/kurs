@@ -157,3 +157,9 @@ Nunito (fallback — системный sans). Веса: 600 — вторичн�
 - Оповещение о достижении целевого курса.
 - Быстрая кнопка «+ налог» с налогом по умолчанию в настройках.
 - RTL-языки.
+
+## 11. Сборка и релизы
+- Релиз запускается тегом `vX.Y.Z` (`git tag v0.2.0 && git push origin v0.2.0`). GitHub Actions (`.github/workflows/release.yml`) гоняет юнит-тесты, собирает подписанный APK и публикует GitHub Release с файлом `Kurs-vX.Y.Z.apk` и автоматическим списком изменений.
+- Версия берётся из тега: `versionName = X.Y.Z`, `versionCode = X·10000 + Y·100 + Z` — каждая следующая версия ставится поверх предыдущей.
+- Релизная сборка сжата R8 (`isMinifyEnabled`, `isShrinkResources`).
+- Подпись: один постоянный ключ (PKCS12, RSA 4096, alias `kurs`). Оригинал — `~/.android/kurs-release.jks` с паролем в `~/.android/kurs-release.properties`, вне репозитория; в CI — секреты `KURS_KEYSTORE_BASE64`, `KURS_KEYSTORE_PASSWORD`, `KURS_KEY_ALIAS`, `KURS_KEY_PASSWORD`. Без ключа релизный APK собирается неподписанным. Потеря ключа = невозможность обновить установленное приложение, поэтому копия хранится в менеджере паролей.

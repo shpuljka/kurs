@@ -1,6 +1,26 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+}
+
+// Release version comes from the git tag in CI (-PversionName=1.2.3); versionCode is derived from it
+// so every release upgrades the previous one: 1.2.3 -> 10203.
+val appVersion = (findProperty("versionName") as String?) ?: "0.1.0"
+val appVersionCode = appVersion.split('.').map { it.toInt() }.let { (major, minor, patch) -> major * 10000 + minor * 100 + patch }
+
+// Release signing: KURS_* environment variables in CI, ~/.android/kurs-release.properties locally.
+// Without either the release APK is left unsigned.
+val signing: Map<String, String>? = System.getenv("KURS_KEYSTORE_FILE")?.let {
+    mapOf(
+        "storeFile" to it,
+        "storePassword" to System.getenv("KURS_KEYSTORE_PASSWORD"),
+        "keyAlias" to System.getenv("KURS_KEY_ALIAS"),
+        "keyPassword" to System.getenv("KURS_KEY_PASSWORD"),
+    )
+} ?: File(System.getProperty("user.home"), ".android/kurs-release.properties").takeIf { it.isFile }?.let { file ->
+    Properties().apply { file.inputStream().use(::load) }.let { props -> props.stringPropertyNames().associateWith(props::getProperty) }
 }
 
 android {
@@ -11,12 +31,22 @@ android {
         applicationId = "io.github.shpuljka.kurs"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersion
+    }
+
+    signingConfigs {
+        if (signing != null) create("release") {
+            storeFile = file(signing.getValue("storeFile"))
+            storePassword = signing.getValue("storePassword")
+            keyAlias = signing.getValue("keyAlias")
+            keyPassword = signing.getValue("keyPassword")
+        }
     }
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
