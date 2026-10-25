@@ -53,4 +53,16 @@
     <string name="rates_update_on_launch">起動時</string>
     <string name="ok">OK</string>
     <string name="cancel">キャンセル</string>
+
+    <string name="scan_open">値札をスキャン</string>
+    <string name="scan_hint">カメラを値札に向けてください</string>
+    <string name="scan_not_found">写真に価格が見つかりません</string>
+    <string name="scan_again">続けてスキャン</string>
+    <string name="scan_insert">換算に入力</string>
+    <string name="scan_gallery">ギャラリーから</string>
+    <string name="scan_flash">ライト</string>
+    <string name="scan_no_camera">カメラにアクセスできません</string>
+    <string name="scan_no_camera_text">Kurs にカメラの使用を許可するか、値札の写真を選んでください。</string>
+    <string name="scan_allow">カメラを許可</string>
+    <string name="scan_open_settings">設定を開く</string>
 </resources>

@@ -60,4 +60,16 @@
     <string name="rates_update_on_launch">On launch</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
+
+    <string name="scan_open">Scan a price tag</string>
+    <string name="scan_hint">Point the camera at a price tag</string>
+    <string name="scan_not_found">No price found in this photo</string>
+    <string name="scan_again">Scan again</string>
+    <string name="scan_insert">To converter</string>
+    <string name="scan_gallery">From gallery</string>
+    <string name="scan_flash">Flashlight</string>
+    <string name="scan_no_camera">No camera access</string>
+    <string name="scan_no_camera_text">Allow Kurs to use the camera, or pick a photo of the price tag.</string>
+    <string name="scan_allow">Allow camera</string>
+    <string name="scan_open_settings">Open settings</string>
 </resources>

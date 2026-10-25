@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import io.github.shpuljka.kurs.converter.ConverterRoute
+import io.github.shpuljka.kurs.scan.ScannerRoute
 import io.github.shpuljka.kurs.settings.SettingsRoute
 import io.github.shpuljka.kurs.ui.theme.KursTheme
 
@@ -20,17 +21,27 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContent {
             // Theme and language changes recreate the activity; the open screen survives via rememberSaveable.
-            var settingsOpen by rememberSaveable { mutableStateOf(false) }
+            var screen by rememberSaveable { mutableStateOf(Screen.Converter) }
             KursTheme {
-                Crossfade(settingsOpen, label = "screen") { settings ->
-                    if (settings) {
-                        BackHandler { settingsOpen = false }
-                        SettingsRoute(onBack = { settingsOpen = false })
-                    } else {
-                        ConverterRoute(onSettings = { settingsOpen = true })
+                Crossfade(screen, label = "screen") { current ->
+                    when (current) {
+                        Screen.Converter -> ConverterRoute(
+                            onSettings = { screen = Screen.Settings },
+                            onScan = { screen = Screen.Scanner },
+                        )
+                        Screen.Settings -> {
+                            BackHandler { screen = Screen.Converter }
+                            SettingsRoute(onBack = { screen = Screen.Converter })
+                        }
+                        Screen.Scanner -> {
+                            BackHandler { screen = Screen.Converter }
+                            ScannerRoute(onClose = { screen = Screen.Converter })
+                        }
                     }
                 }
             }
         }
     }
 }
+
+private enum class Screen { Converter, Settings, Scanner }

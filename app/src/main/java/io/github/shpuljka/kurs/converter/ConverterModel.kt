@@ -62,6 +62,28 @@ data class ConverterModel(
         return copy(active = index, expr = seed, selStart = 0, selEnd = seed.length)
     }
 
+    /** Row a scanned price goes into, spec.md §12.5: the local currency's, else the active one. */
+    fun scanTarget(local: String?): Int = codes.indexOf(local).takeIf { it >= 0 } ?: active
+
+    /** Rows previewed under a scanned price: the first two other than [target]. */
+    fun scanPreview(target: Int): List<Int> = codes.indices.filter { it != target }.take(SCAN_PREVIEW_ROWS)
+
+    /**
+     * Puts a scanned [amount] into row [target] and makes it active, spec.md §12.5: after an open
+     * operation (`120+`) it is appended, otherwise it replaces the amount and is selected like any fresh amount.
+     */
+    fun insertScanned(target: Int, amount: BigDecimal): ConverterModel {
+        if (target !in codes.indices) return this
+        val price = amount.stripTrailingZeros().toPlainString()
+        val open = target == active && expr.isNotEmpty() && expr.last() in Calculator.OPERATORS
+        return if (open) {
+            val text = expr + price
+            copy(expr = text, selStart = text.length, selEnd = text.length)
+        } else {
+            copy(active = target, expr = price, selStart = 0, selEnd = price.length)
+        }
+    }
+
     fun add(code: String): ConverterModel =
         if (!canAdd || code in codes) this else copy(codes = codes + code)
 
@@ -106,6 +128,7 @@ data class ConverterModel(
         const val MAX_ROWS = 10
         const val MIN_ROWS = 2
         const val START_AMOUNT = "100"
+        const val SCAN_PREVIEW_ROWS = 2
 
         /** Local currency + USD + EUR; if local is USD/EUR the next popular one fills in. */
         fun initial(localCode: String): ConverterModel =

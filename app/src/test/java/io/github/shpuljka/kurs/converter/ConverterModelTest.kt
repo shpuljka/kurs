@@ -164,4 +164,45 @@ class ConverterModelTest {
 
     @Test fun `replace with a currency already shown swaps rows`() =
         assertEquals(listOf("EUR", "USD", "RUB"), ConverterModel(listOf("RUB", "USD", "EUR")).replace(0, "EUR").codes)
+
+    // --- scanned price (spec §12.5) -----------------------------------------
+
+    private val rows = ConverterModel(listOf("KZT", "USD", "EUR", "RUB"), active = 1, expr = "100")
+
+    @Test fun `scan goes to the local currency row`() = assertEquals(0, rows.scanTarget("KZT"))
+
+    @Test fun `scan goes to the active row without a local row`() {
+        assertEquals(1, rows.scanTarget("TRY"))
+        assertEquals(1, rows.scanTarget(null))
+    }
+
+    @Test fun `preview shows the first two other rows`() {
+        assertEquals(listOf(1, 2), rows.scanPreview(0))
+        assertEquals(listOf(0, 2), rows.scanPreview(1))
+        assertEquals(listOf(1), ConverterModel(listOf("KZT", "USD")).scanPreview(0))
+    }
+
+    @Test fun `scanned price replaces the amount and selects it`() {
+        val m = rows.insertScanned(0, BigDecimal("1299.50"))
+        assertEquals(0, m.active)
+        assertEquals("1299.5", m.expr)
+        assertEquals(0, m.selStart)
+        assertEquals(6, m.selEnd)
+    }
+
+    @Test fun `scanned price is appended after an open operation`() {
+        val m = ConverterModel(listOf("KZT", "USD"), active = 0, expr = "120+").insertScanned(0, BigDecimal("80"))
+        assertEquals("120+80", m.expr)
+        assertEquals(6, m.selStart)
+        assertEquals(6, m.selEnd)
+    }
+
+    @Test fun `open operation in another row is not continued`() {
+        val m = ConverterModel(listOf("KZT", "USD"), active = 1, expr = "5×").insertScanned(0, BigDecimal("80"))
+        assertEquals(0, m.active)
+        assertEquals("80", m.expr)
+    }
+
+    @Test fun `finished expression is replaced`() =
+        assertEquals("80", ConverterModel(listOf("KZT", "USD"), expr = "120+8%").insertScanned(0, BigDecimal("80")).expr)
 }

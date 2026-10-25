@@ -53,4 +53,16 @@
     <string name="rates_update_on_launch">खोलते समय</string>
     <string name="ok">ठीक है</string>
     <string name="cancel">रद्द करें</string>
+
+    <string name="scan_open">मूल्य टैग स्कैन करें</string>
+    <string name="scan_hint">कैमरा मूल्य टैग की ओर करें</string>
+    <string name="scan_not_found">फ़ोटो में कोई कीमत नहीं मिली</string>
+    <string name="scan_again">स्कैन जारी रखें</string>
+    <string name="scan_insert">कन्वर्टर में डालें</string>
+    <string name="scan_gallery">गैलरी से</string>
+    <string name="scan_flash">टॉर्च</string>
+    <string name="scan_no_camera">कैमरा एक्सेस नहीं है</string>
+    <string name="scan_no_camera_text">Kurs को कैमरा इस्तेमाल करने दें या मूल्य टैग की फ़ोटो चुनें।</string>
+    <string name="scan_allow">कैमरा की अनुमति दें</string>
+    <string name="scan_open_settings">सेटिंग खोलें</string>
 </resources>

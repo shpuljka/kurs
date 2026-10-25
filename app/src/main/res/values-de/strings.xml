@@ -53,4 +53,16 @@
     <string name="rates_update_on_launch">Beim Start</string>
     <string name="ok">OK</string>
     <string name="cancel">Abbrechen</string>
+
+    <string name="scan_open">Preisschild scannen</string>
+    <string name="scan_hint">Richte die Kamera auf ein Preisschild</string>
+    <string name="scan_not_found">Kein Preis auf dem Foto gefunden</string>
+    <string name="scan_again">Weiter scannen</string>
+    <string name="scan_insert">In den Umrechner</string>
+    <string name="scan_gallery">Aus der Galerie</string>
+    <string name="scan_flash">Taschenlampe</string>
+    <string name="scan_no_camera">Kein Kamerazugriff</string>
+    <string name="scan_no_camera_text">Erlaube Kurs die Kamera oder wähle ein Foto des Preisschilds.</string>
+    <string name="scan_allow">Kamera erlauben</string>
+    <string name="scan_open_settings">Einstellungen öffnen</string>
 </resources>

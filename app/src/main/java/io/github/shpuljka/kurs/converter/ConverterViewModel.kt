@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
+import java.math.BigDecimal
 
 enum class RatesStatus {
     /** Fetching and nothing cached yet. */
@@ -36,6 +37,8 @@ enum class RatesStatus {
 data class ConverterUiState(
     val model: ConverterModel,
     val country: String?,
+    /** Currency of [country]; a scanned price goes into its row (spec.md §12.5). */
+    val local: String? = null,
     val rates: Rates? = null,
     val status: RatesStatus = RatesStatus.Loading,
     /** Most recently picked first; seeded with the rows on screen. */
@@ -49,7 +52,7 @@ class ConverterViewModel(app: Application) : AndroidViewModel(app) {
     private val country = CountryDetector.country(app)
     private val local: String? = country?.let(CountryDetector::currencyOf)
 
-    private val _state = MutableStateFlow(ConverterUiState(ConverterModel.initial(local ?: "USD"), country))
+    private val _state = MutableStateFlow(ConverterUiState(ConverterModel.initial(local ?: "USD"), country, local))
     val state: StateFlow<ConverterUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
 
@@ -100,6 +103,9 @@ class ConverterViewModel(app: Application) : AndroidViewModel(app) {
     fun selectAll() = updateModel { it.selectAll() }
 
     fun select(index: Int) = _state.update { it.copy(model = it.model.select(index, it.rates)) }
+
+    /** A price from the scanner, spec.md §12.5. */
+    fun insertScanned(amount: BigDecimal) = updateModel { it.insertScanned(it.scanTarget(local), amount) }
 
     fun remove(index: Int) = _state.update { it.copy(model = it.model.remove(index, it.rates)) }
 

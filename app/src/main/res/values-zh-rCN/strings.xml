@@ -53,4 +53,16 @@
     <string name="rates_update_on_launch">启动时</string>
     <string name="ok">确定</string>
     <string name="cancel">取消</string>
+
+    <string name="scan_open">扫描价签</string>
+    <string name="scan_hint">将相机对准价签</string>
+    <string name="scan_not_found">照片中未找到价格</string>
+    <string name="scan_again">继续扫描</string>
+    <string name="scan_insert">填入换算器</string>
+    <string name="scan_gallery">从相册选择</string>
+    <string name="scan_flash">手电筒</string>
+    <string name="scan_no_camera">无法使用相机</string>
+    <string name="scan_no_camera_text">请允许 Kurs 使用相机，或选择一张价签照片。</string>
+    <string name="scan_allow">允许使用相机</string>
+    <string name="scan_open_settings">打开设置</string>
 </resources>

@@ -57,4 +57,16 @@
     <string name="rates_update_on_launch">При запуске</string>
     <string name="ok">ОК</string>
     <string name="cancel">Отмена</string>
+
+    <string name="scan_open">Сканировать ценник</string>
+    <string name="scan_hint">Наведите камеру на ценник</string>
+    <string name="scan_not_found">На фото не нашлось цены</string>
+    <string name="scan_again">Сканировать дальше</string>
+    <string name="scan_insert">В конвертер</string>
+    <string name="scan_gallery">Из галереи</string>
+    <string name="scan_flash">Фонарик</string>
+    <string name="scan_no_camera">Нет доступа к камере</string>
+    <string name="scan_no_camera_text">Разрешите Kurs пользоваться камерой или выберите фото ценника.</string>
+    <string name="scan_allow">Разрешить камеру</string>
+    <string name="scan_open_settings">Открыть настройки</string>
 </resources>

@@ -53,4 +53,16 @@
     <string name="rates_update_on_launch">Açılışta</string>
     <string name="ok">Tamam</string>
     <string name="cancel">İptal</string>
+
+    <string name="scan_open">Fiyat etiketini tara</string>
+    <string name="scan_hint">Kamerayı bir fiyat etiketine doğrultun</string>
+    <string name="scan_not_found">Fotoğrafta fiyat bulunamadı</string>
+    <string name="scan_again">Taramaya devam et</string>
+    <string name="scan_insert">Çeviriciye aktar</string>
+    <string name="scan_gallery">Galeriden</string>
+    <string name="scan_flash">El feneri</string>
+    <string name="scan_no_camera">Kamera erişimi yok</string>
+    <string name="scan_no_camera_text">Kurs’un kamerayı kullanmasına izin verin veya etiketin fotoğrafını seçin.</string>
+    <string name="scan_allow">Kameraya izin ver</string>
+    <string name="scan_open_settings">Ayarları aç</string>
 </resources>

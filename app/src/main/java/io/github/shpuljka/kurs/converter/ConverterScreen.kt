@@ -57,7 +57,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun ConverterRoute(onSettings: () -> Unit, viewModel: ConverterViewModel = viewModel()) {
+fun ConverterRoute(onSettings: () -> Unit, onScan: () -> Unit, viewModel: ConverterViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Row index whose currency is being changed, ADD_ROW when adding, null when the picker is closed.
     var pickerFor by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -72,6 +72,7 @@ fun ConverterRoute(onSettings: () -> Unit, viewModel: ConverterViewModel = viewM
         onAdd = { pickerFor = ADD_ROW },
         onRefresh = viewModel::refresh,
         onSettings = onSettings,
+        onScan = onScan,
     )
     pickerFor?.let { target ->
         val adding = target == ADD_ROW
@@ -109,6 +110,7 @@ fun ConverterScreen(
     onAdd: () -> Unit,
     onRefresh: () -> Unit,
     onSettings: () -> Unit,
+    onScan: () -> Unit,
 ) {
     val c = KursTheme.colors
     val locale = LocalConfiguration.current.locales[0]
@@ -127,7 +129,7 @@ fun ConverterScreen(
             .padding(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Header(country = state.country, locale = locale, onSettings = onSettings)
+        Header(country = state.country, locale = locale, onScan = onScan, onSettings = onSettings)
 
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -165,7 +167,7 @@ fun ConverterScreen(
 }
 
 @Composable
-private fun Header(country: String?, locale: Locale, onSettings: () -> Unit) {
+private fun Header(country: String?, locale: Locale, onScan: () -> Unit, onSettings: () -> Unit) {
     val c = KursTheme.colors
     Row(modifier = Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.converter_title), style = MaterialTheme.typography.headlineSmall, color = c.fg)
@@ -183,16 +185,23 @@ private fun Header(country: String?, locale: Locale, onSettings: () -> Unit) {
             )
         }
         Box(Modifier.weight(1f))
-        IconButton(
-            onClick = onSettings,
-            modifier = Modifier
-                .size(48.dp)
-                .shadow(6.dp, KursShapes.pill, ambientColor = c.shadow, spotColor = c.shadow)
-                .clip(KursShapes.pill)
-                .background(c.surface),
-        ) {
-            Icon(painterResource(R.drawable.ic_menu), contentDescription = stringResource(R.string.settings), tint = c.fg)
-        }
+        HeaderButton(R.drawable.ic_camera, stringResource(R.string.scan_open), onScan)
+        HeaderButton(R.drawable.ic_menu, stringResource(R.string.settings), onSettings, Modifier.padding(start = 10.dp))
+    }
+}
+
+@Composable
+private fun HeaderButton(icon: Int, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val c = KursTheme.colors
+    IconButton(
+        onClick = onClick,
+        modifier = modifier
+            .size(48.dp)
+            .shadow(6.dp, KursShapes.pill, ambientColor = c.shadow, spotColor = c.shadow)
+            .clip(KursShapes.pill)
+            .background(c.surface),
+    ) {
+        Icon(painterResource(icon), contentDescription = label, tint = c.fg)
     }
 }
 

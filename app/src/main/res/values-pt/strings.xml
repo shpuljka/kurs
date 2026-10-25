@@ -53,4 +53,16 @@
     <string name="rates_update_on_launch">Ao abrir</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancelar</string>
+
+    <string name="scan_open">Escanear etiqueta de preço</string>
+    <string name="scan_hint">Aponte a câmera para uma etiqueta de preço</string>
+    <string name="scan_not_found">Nenhum preço encontrado na foto</string>
+    <string name="scan_again">Continuar escaneando</string>
+    <string name="scan_insert">Para o conversor</string>
+    <string name="scan_gallery">Da galeria</string>
+    <string name="scan_flash">Lanterna</string>
+    <string name="scan_no_camera">Sem acesso à câmera</string>
+    <string name="scan_no_camera_text">Permita que o Kurs use a câmera ou escolha uma foto da etiqueta.</string>
+    <string name="scan_allow">Permitir câmera</string>
+    <string name="scan_open_settings">Abrir configurações</string>
 </resources>

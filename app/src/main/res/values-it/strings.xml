@@ -53,4 +53,16 @@
     <string name="rates_update_on_launch">All\'avvio</string>
     <string name="ok">OK</string>
     <string name="cancel">Annulla</string>
+
+    <string name="scan_open">Scansiona cartellino</string>
+    <string name="scan_hint">Inquadra un cartellino del prezzo</string>
+    <string name="scan_not_found">Nessun prezzo trovato nella foto</string>
+    <string name="scan_again">Continua a scansionare</string>
+    <string name="scan_insert">Nel convertitore</string>
+    <string name="scan_gallery">Dalla galleria</string>
+    <string name="scan_flash">Torcia</string>
+    <string name="scan_no_camera">Nessun accesso alla fotocamera</string>
+    <string name="scan_no_camera_text">Consenti a Kurs di usare la fotocamera o scegli una foto del cartellino.</string>
+    <string name="scan_allow">Consenti fotocamera</string>
+    <string name="scan_open_settings">Apri impostazioni</string>
 </resources>
