@@ -205,4 +205,9 @@ class ConverterModelTest {
 
     @Test fun `finished expression is replaced`() =
         assertEquals("80", ConverterModel(listOf("KZT", "USD"), expr = "120+8%").insertScanned(0, BigDecimal("80")).expr)
+
+    @Test fun `scanned price is rounded to the row currency`() {
+        assertEquals("0.3", rows.insertScanned(1, BigDecimal("0.299")).expr)
+        assertEquals("1300", ConverterModel(listOf("JPY", "USD")).insertScanned(0, BigDecimal("1299.5")).expr)
+    }
 }

@@ -1,6 +1,7 @@
 package io.github.shpuljka.kurs.scan
 
 import java.math.BigDecimal
+import java.math.RoundingMode
 
 /** Axis-aligned box in image (or view) pixels. */
 data class Box(val left: Float, val top: Float, val right: Float, val bottom: Float) {
@@ -49,8 +50,14 @@ object PriceParser {
     /** Candidates, best first. [fractionDigits] are those of the currency the price goes into. */
     fun candidates(lines: List<OcrLine>, fractionDigits: Int): List<PriceCandidate> {
         val found = lines.flatMap { line(it, fractionDigits) }
-        return (if (fractionDigits > 0) joinRaisedCents(found) else found).sortedByDescending { it.score }
+        return (if (fractionDigits > 0) joinRaisedCents(found) else found).sortedWith(BEST_FIRST)
     }
+
+    /** Biggest weighted print first; on a tie the one with a currency, then with cents, then the right-most ("2 x 1,99"). */
+    private val BEST_FIRST = compareByDescending<PriceCandidate> { it.score }
+        .thenByDescending { it.hasCurrency }
+        .thenByDescending { it.amount.stripTrailingZeros().scale() > 0 }
+        .thenByDescending { it.box.left }
 
     /** Raised cents often come back as a line of their own: glue a small 2-digit number to the price on its left. */
     private fun joinRaisedCents(found: List<PriceCandidate>): List<PriceCandidate> {
@@ -89,9 +96,19 @@ object PriceParser {
         val found = mutableListOf<PriceCandidate>()
         var i = 0
         while (i < slots.size) {
-            if (!slots[i].c.isDigit() || (i > 0 && !slots[i].wordStart && slots[i - 1].c.isLetterOrDigit())) {
+            if (!slots[i].c.isDigit()) {
                 i++
                 continue
+            }
+            if (i > 0 && !slots[i].wordStart && slots[i - 1].c.isLetterOrDigit()) {
+                // Glued after letters: a currency prefix ("EUR12,99", "R$4,99") still makes a price, a code ("SKU123") doesn't.
+                val wordStart = (i downTo 0).first { slots[it].wordStart }
+                val prefix = slots.subList(wordStart, i).joinToString("") { "${it.c}" }.lowercase()
+                if (!CURRENCY_PREFIX.matches(prefix)) {
+                    // Skip the whole number so its tail ("SKU12,99" → "99") isn't read on its own.
+                    while (i < slots.size && !slots[i].wordStart && (slots[i].c.isDigit() || slots[i].c in SEPARATORS)) i++
+                    continue
+                }
             }
             val run = number(slots, i)
             i = run.end
@@ -99,18 +116,22 @@ object PriceParser {
             val before = text.substring(0, at[run.start]).lowercase()
             val after = if (run.end < slots.size) text.substring(at[run.end]).lowercase() else ""
             val amount = parseAmount(run.main, fractionDigits, run.cents, run.whole) ?: continue
-            if (amount.signum() == 0 || amount.precision() - amount.scale() > MAX_INTEGER_DIGITS) continue
-            if (UNIT_AFTER.containsMatchIn(after)) continue
+            // The keypad takes at most 12 digits per number.
+            if (amount.signum() == 0 || amount.toPlainString().count(Char::isDigit) > MAX_DIGITS) continue
+            if (UNIT_AFTER.containsMatchIn(after) || QUANTITY_AFTER.containsMatchIn(after)) continue
             // Letters glued after the digits ("3a", "5x") make a word, not a price — unless it's a currency ("99p").
             val glued = run.end < slots.size && !slots[run.end].wordStart && slots[run.end].c.isLetter()
             if (glued && !CURRENCY_AFTER.containsMatchIn(after)) continue
-            if (isDate(run.main) || TIME_OR_DATE_BEFORE.containsMatchIn(before) || TIME_OR_DATE_AFTER.containsMatchIn(after)) continue
+            val perUnit = PER_UNIT_AFTER.containsMatchIn(after) || PER_UNIT_BEFORE.containsMatchIn(before)
+            // "0,89/100g" is a price per unit, not a date.
+            val dateLike = TIME_OR_DATE_BEFORE.containsMatchIn(before) || (!perUnit && TIME_OR_DATE_AFTER.containsMatchIn(after))
+            if (isDate(run.main) || dateLike) continue
             found += PriceCandidate(
                 amount = amount,
                 box = run.box,
                 size = run.size,
                 hasCurrency = CURRENCY_AFTER.containsMatchIn(after) || CURRENCY_BEFORE.containsMatchIn(before),
-                perUnit = PER_UNIT_AFTER.containsMatchIn(after) || PER_UNIT_BEFORE.containsMatchIn(before),
+                perUnit = perUnit,
                 bareDigits = run.main.takeIf { run.cents == null && !run.whole && it.all(Char::isDigit) },
             )
         }
@@ -186,7 +207,9 @@ object PriceParser {
         // Swallow leftover digits of the word (a lone raised digit) so they aren't read as another number.
         var end = i
         while (end < slots.size && slots[end].c.isDigit() && !slots[end].wordStart) end++
-        return Run(start, end, main.toString(), cents, whole, box, mainHeight(), rejected = digits > MAX_CODE_DIGITS)
+        // A long bare run is a barcode or article number; grouped amounts ("1.299.000,00") may be longer.
+        val bare = main.all(Char::isDigit) && cents == null
+        return Run(start, end, main.toString(), cents, whole, box, mainHeight(), rejected = bare && digits > MAX_CODE_DIGITS)
     }
 
     /** Same-size digits in the word starting at [from]; raised cents after them don't count. */
@@ -214,16 +237,18 @@ object PriceParser {
         val seps = raw.filter { !it.isDigit() }
         val last = seps.lastOrNull()
         val tail = groups.last()
-        val decimal = cents == null && !whole && fractionDigits > 0 && last != null && last in ".," &&
-            (tail.length in 1..2 || (tail.length == 3 && groups.size == 2 && groups[0] == "0"))
-        if (!decimal && last != null && last in ".," && tail.length != 3 && fractionDigits > 0 && !whole && cents == null) return null
+        val decimal = cents == null && !whole && last != null && last in ".," &&
+            (tail.length in 1..2 || (fractionDigits > 0 && tail.length == 3 && groups.size == 2 && groups[0] == "0"))
+        if (!decimal && last != null && last in ".," && tail.length != 3 && !whole && cents == null) return null
         val integer = if (decimal) groups.dropLast(1).joinToString("") else groups.joinToString("")
         val fraction = when {
             cents != null -> cents
             decimal -> tail
             else -> ""
         }
-        return BigDecimal(if (fraction.isEmpty()) integer else "$integer.$fraction")
+        val value = BigDecimal(if (fraction.isEmpty()) integer else "$integer.$fraction")
+        // A currency without cents rounds them off instead of reading "12,90" as 1290.
+        return if (fractionDigits == 0) value.setScale(0, RoundingMode.HALF_UP) else value
     }
 
     private fun isDate(raw: String) = FULL_DATE.matches(raw)
@@ -231,18 +256,22 @@ object PriceParser {
     private const val SEPARATORS = ".,'’"
     private const val DASHES = "-–—"
     private const val MAX_CODE_DIGITS = 8
-    private const val MAX_INTEGER_DIGITS = 12
+    private const val MAX_DIGITS = 12
 
     // The bundled model reads Latin only, so Cyrillic comes back as look-alikes: "мл" → "mn", "г" → "r",
     // "шт" → "wt", "руб." → "py6.", "тг" → "tr", "за" → "3a". Both spellings are listed.
     private const val UNITS = "kg|g|gr|mg|l|ml|cl|dl|cm|mm|m|oz|lb|lbs|pcs|pc|шт|кг|г|гр|мг|л|мл|см|мм|м|r|n|mn|wt|ut|%"
     private const val CURRENCY = "[€$£¥₸₽₺₹₩₴₪₫฿₱₦₼₾]|eur|usd|gbp|rub|kzt|chf|aed|try|pln|czk|huf|sek|nok|dkk|uah|" +
-        "руб|py[6бõo]|р\\.?|p\\.?|тг|tr|t|тенге|грн|zł|kč|kr|ft|lei|fr\\.?"
+        "руб|py[6бõo]|р\\.?|p\\.?|тг|tr|t|тенге|грн|zł|kč|kr|ft|lei|fr\\.?|[a-z]{1,2}\\$|rs\\.?|rm|s/\\.?|rp"
 
+    // Letters allowed right before the digits: a currency ("EUR12,99") or a quantity ("2x1,99").
+    private val CURRENCY_PREFIX = Regex("($CURRENCY)\\s?|\\d+[x×]")
     private val UNIT_AFTER = Regex("^\\s?($UNITS)(?![\\p{L}])")
     private val CURRENCY_AFTER = Regex("^\\s?($CURRENCY)(?![\\p{L}])")
     private val CURRENCY_BEFORE = Regex("(?<![\\p{L}])($CURRENCY)\\s?$")
-    private val PER_UNIT_AFTER = Regex("^\\s?(($CURRENCY)\\s?)?/\\s?(\\d+\\s?)?($UNITS)(?![\\p{L}])")
+    private val PER_UNIT_AFTER = Regex("^\\s?(($CURRENCY)\\s?)?(/|per|pro|je|par|por|за|3a)\\s?(\\d+\\s?)?($UNITS)(?![\\p{L}])")
+    // "2 x 1,99", "3 for 5": a quantity, not a price.
+    private val QUANTITY_AFTER = Regex("^\\s?(x|×|for|für|pour)\\s?\\d")
     private val PER_UNIT_BEFORE = Regex("(за|3a|per|pro|je|par|por|/)\\s?(\\d+\\s?)?($UNITS)(?![\\p{L}])")
     private val FULL_DATE = Regex("\\d{1,2}[./]\\d{1,2}[./]\\d{2,4}")
     // "12:30", "25/10": the neighbour across ':' or '/' is a digit.

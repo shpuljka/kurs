@@ -13,11 +13,13 @@ import android.util.Log
 import android.util.Size
 import android.view.MotionEvent
 import android.view.ViewConfiguration
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.TorchState
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.mlkit.vision.MlKitAnalyzer
@@ -50,9 +52,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -78,6 +82,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.Observer
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -135,13 +140,14 @@ fun ScannerScreen(
     val context = LocalContext.current
     val activity = LocalActivity.current
     val scope = rememberCoroutineScope()
-    val digits = Currencies.fractionDigits(targetCode)
+    // Read when results arrive, so a target row that changes while the screen is open is respected.
+    val digits by rememberUpdatedState(Currencies.fractionDigits(targetCode))
 
     var granted by remember { mutableStateOf(hasCameraPermission(context)) }
-    var denied by remember { mutableStateOf(false) }
+    var refusals by rememberSaveable { mutableIntStateOf(0) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         granted = ok
-        denied = !ok
+        if (!ok) refusals++
     }
     LaunchedEffect(Unit) { if (!granted) permission.launch(Manifest.permission.CAMERA) }
     // Back from system settings with the permission turned on.
@@ -155,41 +161,56 @@ fun ScannerScreen(
 
     var live by remember { mutableStateOf(emptyList<PriceCandidate>()) }
     var frozen by remember { mutableStateOf<Frozen?>(null) }
-    var torch by remember { mutableStateOf(false) }
     var hasFlash by remember { mutableStateOf(false) }
     var reading by remember { mutableStateOf(false) }
+    var photoFailed by remember { mutableStateOf(false) }
     val preview = remember { PreviewHolder() }
+    val controller = remember { cameraController(context) }
+    val torch = rememberTorch(controller)
 
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) scope.launch {
             reading = true
-            frozen = readPhoto(context, uri, recognizer, digits)
+            // A photo that can't be read leaves the current picture as it was.
+            val photo = readPhoto(context, uri, recognizer, digits)
+            if (photo != null) frozen = photo
+            photoFailed = photo == null
             reading = false
         }
     }
+    fun freeze(f: Frozen) {
+        controller.enableTorch(false)
+        photoFailed = false
+        frozen = f
+    }
+    // Back first leaves a frozen picture, then the scanner.
+    BackHandler(enabled = frozen != null) { frozen = null }
     val pickPhoto = { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
     CameraWindow(darkBackground = granted || frozen != null)
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (granted) {
             CameraPreview(
+                controller = controller,
                 recognizer = recognizer,
-                fractionDigits = digits,
-                torch = torch,
+                // Recognition stops while a picture is frozen.
+                analyzing = frozen == null,
+                fractionDigits = { digits },
                 holder = preview,
                 onFlash = { hasFlash = it },
-                onCandidates = { if (frozen == null) live = it },
+                onCandidates = { live = it },
                 onTap = { x, y ->
                     val hit = hitTest(live, x, y, context)
                     val shot = preview.view?.bitmap
-                    if (frozen == null && hit != null && shot != null) frozen = Frozen(shot.asImageBitmap(), live, hit)
+                    if (frozen == null && hit != null && shot != null) freeze(Frozen(shot.asImageBitmap(), live, hit))
                 },
             )
             if (frozen == null) Highlights(live, selected = 0, imageSize = null, onSelect = null)
         } else {
             NoCamera(
-                // After a second refusal Android stops asking; only system settings can turn the camera on.
-                blocked = denied && activity?.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) == false,
+                // After two refusals Android stops asking; only system settings can turn the camera on.
+                // (Dismissing the dialog also counts as a refusal but leaves it askable, hence not after the first.)
+                blocked = refusals >= 2 && activity?.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) == false,
                 onAllow = { blocked ->
                     if (blocked) context.startActivity(appSettings(context)) else permission.launch(Manifest.permission.CAMERA)
                 },
@@ -206,13 +227,13 @@ fun ScannerScreen(
         TopBar(
             showTorch = granted && frozen == null && hasFlash,
             torch = torch,
-            onTorch = { torch = !torch },
+            onTorch = { controller.enableTorch(!torch) },
             onGallery = pickPhoto,
             onClose = onClose,
         )
 
         val chosen = frozen?.let { f -> f.selected?.let(f.candidates::getOrNull) } ?: live.firstOrNull().takeIf { frozen == null }
-        if (granted || frozen != null || reading) {
+        if (granted || frozen != null || reading || photoFailed) {
             BottomPanel(
                 price = chosen?.amount,
                 targetCode = targetCode,
@@ -220,11 +241,14 @@ fun ScannerScreen(
                 rates = rates,
                 hint = when {
                     reading -> null
-                    frozen != null -> stringResource(R.string.scan_not_found)
+                    frozen != null || photoFailed -> stringResource(R.string.scan_not_found)
                     else -> stringResource(R.string.scan_hint)
                 },
                 frozen = frozen != null,
-                onScanAgain = { frozen = null },
+                onScanAgain = {
+                    frozen = null
+                    photoFailed = false
+                },
                 onInsert = onInsert,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
@@ -237,12 +261,34 @@ private class PreviewHolder {
     var view: PreviewView? = null
 }
 
+private fun cameraController(context: Context) = LifecycleCameraController(context).apply {
+    setEnabledUseCases(CameraController.IMAGE_ANALYSIS)
+    // Small digits need more than the default 640×480.
+    imageAnalysisResolutionSelector = ResolutionSelector.Builder()
+        .setResolutionStrategy(ResolutionStrategy(Size(1280, 720), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER))
+        .build()
+}
+
+/** Whether the torch is actually on: CameraX turns it off when the camera reopens (after Home, say). */
+@Composable
+private fun rememberTorch(controller: LifecycleCameraController): Boolean {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var on by remember { mutableStateOf(false) }
+    DisposableEffect(controller, lifecycleOwner) {
+        val observer = Observer<Int> { on = it == TorchState.ON }
+        controller.torchState.observe(lifecycleOwner, observer)
+        onDispose { controller.torchState.removeObserver(observer) }
+    }
+    return on
+}
+
 @SuppressLint("ClickableViewAccessibility")
 @Composable
 private fun CameraPreview(
+    controller: LifecycleCameraController,
     recognizer: TextRecognizer,
-    fractionDigits: Int,
-    torch: Boolean,
+    analyzing: Boolean,
+    fractionDigits: () -> Int,
     holder: PreviewHolder,
     onFlash: (Boolean) -> Unit,
     onCandidates: (List<PriceCandidate>) -> Unit,
@@ -251,32 +297,26 @@ private fun CameraPreview(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val candidates by rememberUpdatedState(onCandidates)
+    val digits by rememberUpdatedState(fractionDigits)
+    val flash by rememberUpdatedState(onFlash)
     val tap by rememberUpdatedState(onTap)
-    val controller = remember {
-        LifecycleCameraController(context).apply {
-            setEnabledUseCases(CameraController.IMAGE_ANALYSIS)
-            // Small digits need more than the default 640×480.
-            imageAnalysisResolutionSelector = ResolutionSelector.Builder()
-                .setResolutionStrategy(ResolutionStrategy(Size(1280, 720), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER))
-                .build()
-            val main = ContextCompat.getMainExecutor(context)
-            setImageAnalysisAnalyzer(main, MlKitAnalyzer(listOf(recognizer), ImageAnalysis.COORDINATE_SYSTEM_VIEW_REFERENCED, main) { result ->
-                result.getValue(recognizer)?.let { candidates(PriceParser.candidates(it.toOcrLines(), fractionDigits)) }
-            })
-        }
-    }
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(controller, lifecycleOwner) {
         controller.bindToLifecycle(lifecycleOwner)
         controller.initializationFuture.addListener(
-            { onFlash(controller.cameraInfo?.hasFlashUnit() == true) },
+            { flash(controller.cameraInfo?.hasFlashUnit() == true) },
             ContextCompat.getMainExecutor(context),
         )
-        onDispose {
-            controller.clearImageAnalysisAnalyzer()
-            controller.unbind()
-        }
+        onDispose { controller.unbind() }
     }
-    LaunchedEffect(torch) { controller.enableTorch(torch) }
+    DisposableEffect(controller, recognizer, analyzing) {
+        if (analyzing) {
+            val main = ContextCompat.getMainExecutor(context)
+            controller.setImageAnalysisAnalyzer(main, MlKitAnalyzer(listOf(recognizer), ImageAnalysis.COORDINATE_SYSTEM_VIEW_REFERENCED, main) { result ->
+                result.getValue(recognizer)?.let { candidates(PriceParser.candidates(it.toOcrLines(), digits())) }
+            })
+        }
+        onDispose { controller.clearImageAnalysisAnalyzer() }
+    }
 
     AndroidView(
         modifier = Modifier.fillMaxSize(),
@@ -501,12 +541,14 @@ private fun NoCamera(blocked: Boolean, onAllow: (blocked: Boolean) -> Unit, onGa
 private fun CameraWindow(darkBackground: Boolean) {
     val activity = LocalActivity.current ?: return
     val bars = remember(activity) { WindowCompat.getInsetsController(activity.window, activity.window.decorView) }
+    // Saved: locking to portrait from landscape recreates the activity, and the new one must restore the original.
+    val orientation = rememberSaveable { activity.requestedOrientation }
     DisposableEffect(activity) {
         val lightStatus = bars.isAppearanceLightStatusBars
-        val orientation = activity.requestedOrientation
         activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         onDispose {
-            activity.requestedOrientation = orientation
+            // Recreated for the rotation to portrait: the new instance locks again, don't flip back in between.
+            if (!activity.isChangingConfigurations) activity.requestedOrientation = orientation
             bars.isAppearanceLightStatusBars = lightStatus
         }
     }

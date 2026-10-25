@@ -65,9 +65,9 @@ class PriceParserTest {
     @Test fun `two separate numbers are not joined`() =
         assertEquals(listOf("12", "34"), amounts(line(W("12"), W("34"))).sorted())
 
-    @Test fun `currency without fraction takes every separator as thousands`() {
+    @Test fun `currency without fraction reads three digits as thousands`() {
         assertEquals("1299", best(line(W("1.299")), digits = 0))
-        assertEquals("1299", best(line(W("12,99")), digits = 0))
+        assertEquals("1299", best(line(W("1,299")), digits = 0))
     }
 
     @Test fun `leading zero keeps three decimals`() = assertEquals("0.299", best(line(W("0.299"))))
@@ -216,4 +216,55 @@ class PriceParserTest {
         assertTrue(perLitre.single().perUnit)
         assertTrue(PriceParser.candidates(listOf(line(W("1"), W("299"), W("Tr"))), 0).single().hasCurrency)
     }
+
+    // --- review cases ----------------------------------------------------------
+
+    @Test fun `currency code glued before the number`() {
+        val c = PriceParser.candidates(listOf(line(W("EUR12,99"))), 2).single()
+        assertEquals("12.99", c.amount.toPlainString())
+        assertTrue(c.hasCurrency)
+        assertEquals("12.9", best(line(W("CHF12.90"))))
+    }
+
+    @Test fun `code glued after letters is skipped whole`() = assertEquals(emptyList<String>(), amounts(line(W("SKU12,99"))))
+
+    @Test fun `quantity times price`() {
+        assertEquals(listOf("1.99"), amounts(line(W("2x1,99"))))
+        assertEquals(listOf("1.99"), amounts(line(W("2"), W("x"), W("1,99"))))
+        assertEquals(listOf("5"), amounts(line(W("3"), W("for"), W("5"))))
+    }
+
+    @Test fun `long grouped prices are kept`() {
+        assertEquals("1234567.89", best(line(W("1.234.567,89"))))
+        assertEquals("1299000", best(line(W("Rp"), W("1.299.000,00"))))
+    }
+
+    @Test fun `more than 12 digits do not fit the keypad`() = assertNull(best(line(W("123.456.789.012,50"))))
+
+    @Test fun `currency without fraction rounds printed cents off`() {
+        assertEquals("1300", best(line(W("1.299,50")), digits = 0))
+        assertEquals("13", best(line(W("12,9")), digits = 0))
+        assertEquals("1299", best(line(W("1.299")), digits = 0))
+    }
+
+    @Test fun `letter-prefixed dollar signs count as currency`() {
+        assertTrue(PriceParser.candidates(listOf(line(W("R$"), W("4,99"))), 2).single().hasCurrency)
+        assertTrue(PriceParser.candidates(listOf(line(W("US$4.99"))), 2).single().hasCurrency)
+        assertTrue(PriceParser.candidates(listOf(line(W("Rs.1,299"))), 2).single().hasCurrency)
+    }
+
+    @Test fun `per unit written with words`() {
+        assertTrue(PriceParser.candidates(listOf(line(W("1,29"), W("per"), W("100"), W("g"))), 2).single().perUnit)
+        assertTrue(PriceParser.candidates(listOf(line(W("1,29"), W("€"), W("je"), W("100"), W("g"))), 2).single().perUnit)
+    }
+
+    @Test fun `price per 100g with a slash is kept`() {
+        val c = PriceParser.candidates(listOf(line(W("0,89/100g"))), 2)
+        assertEquals(listOf("0.89"), c.map { it.amount.toPlainString() })
+        assertTrue(c.single().perUnit)
+    }
+
+    @Test fun `on a tie the number with cents wins`() = assertEquals("1.99", best(line(W("3"), W("1,99"))))
+
+    @Test fun `on a full tie the right-most number wins`() = assertEquals("5", best(line(W("3"), W("5"))))
 }

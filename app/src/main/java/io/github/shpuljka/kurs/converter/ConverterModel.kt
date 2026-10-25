@@ -74,7 +74,8 @@ data class ConverterModel(
      */
     fun insertScanned(target: Int, amount: BigDecimal): ConverterModel {
         if (target !in codes.indices) return this
-        val price = amount.stripTrailingZeros().toPlainString()
+        // Rounded like the scanner panel shows it: "0.299" for USD goes in as 0.3.
+        val price = amount.setScale(Currencies.fractionDigits(codes[target]), RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
         val open = target == active && expr.isNotEmpty() && expr.last() in Calculator.OPERATORS
         return if (open) {
             val text = expr + price
