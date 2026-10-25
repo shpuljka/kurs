@@ -1,20 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Two opposing arrows: "swap currencies". Kept inside the 66dp safe zone. -->
+<!-- "К" whose upper branch is a rising arrow (spec.md §8). Kept inside the 66dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:pathData="M34,44H74M64,34L74,44L64,54"
-        android:strokeWidth="7"
+        android:pathData="M40,31V77"
+        android:strokeWidth="9"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M45,55L70,31M58,31H70V43"
+        android:strokeWidth="9"
         android:strokeColor="#FFFFFF"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
     <path
-        android:pathData="M74,64H34M44,54L34,64L44,74"
-        android:strokeWidth="7"
-        android:strokeColor="#FFFFFF"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
+        android:pathData="M53,61L69,77"
+        android:strokeWidth="9"
+        android:strokeColor="#DCD4FF"
+        android:strokeLineCap="round" />
 </vector>

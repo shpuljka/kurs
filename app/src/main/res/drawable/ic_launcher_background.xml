@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Diagonal accent gradient, top-left light to bottom-right dark. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="315"
+        android:startColor="#6E5EEA"
+        android:endColor="#4A3BC4" />
+</shape>
