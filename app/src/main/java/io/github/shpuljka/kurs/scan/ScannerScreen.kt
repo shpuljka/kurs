@@ -115,6 +115,9 @@ fun ScannerRoute(onClose: () -> Unit, viewModel: ConverterViewModel = viewModel(
         targetCode = model.codes[target],
         previewCodes = model.scanPreview(target).map { model.codes[it] },
         rates = state.rates,
+        // A photo left open last time (a menu, say) comes back instead of the camera, spec.md §12.3.
+        lastPhoto = viewModel.lastScanPhoto,
+        onPhotoChange = { viewModel.lastScanPhoto = it },
         onInsert = {
             viewModel.insertScanned(it)
             onClose()
@@ -123,9 +126,9 @@ fun ScannerRoute(onClose: () -> Unit, viewModel: ConverterViewModel = viewModel(
     )
 }
 
-/** A still picture with the prices found on it; [selected] indexes [candidates]. */
-private class Frozen(val image: ImageBitmap, val candidates: List<PriceCandidate>, val selected: Int?) {
-    fun select(index: Int) = Frozen(image, candidates, index)
+/** A still picture with the prices found on it; [selected] indexes [candidates]. [fromPhoto]: picked from the gallery. */
+class Frozen(val image: ImageBitmap, val candidates: List<PriceCandidate>, val selected: Int?, val fromPhoto: Boolean) {
+    fun select(index: Int) = Frozen(image, candidates, index, fromPhoto)
 }
 
 /** Price tag scanner, spec.md §12.3. Live camera with highlighted prices; a tap or a gallery photo freezes the frame. */
@@ -134,6 +137,8 @@ fun ScannerScreen(
     targetCode: String,
     previewCodes: List<String>,
     rates: Rates?,
+    lastPhoto: Frozen?,
+    onPhotoChange: (Frozen?) -> Unit,
     onInsert: (BigDecimal) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -149,7 +154,8 @@ fun ScannerScreen(
         granted = ok
         if (!ok) refusals++
     }
-    LaunchedEffect(Unit) { if (!granted) permission.launch(Manifest.permission.CAMERA) }
+    // Opening on a remembered photo doesn't need the camera yet.
+    LaunchedEffect(Unit) { if (!granted && lastPhoto == null) permission.launch(Manifest.permission.CAMERA) }
     // Back from system settings with the permission turned on.
     LifecycleResumeEffect(Unit) {
         granted = hasCameraPermission(context)
@@ -160,7 +166,9 @@ fun ScannerScreen(
     DisposableEffect(recognizer) { onDispose { recognizer.close() } }
 
     var live by remember { mutableStateOf(emptyList<PriceCandidate>()) }
-    var frozen by remember { mutableStateOf<Frozen?>(null) }
+    var frozen by remember { mutableStateOf(lastPhoto) }
+    // Only a gallery photo is remembered; a frame frozen from the camera or the live view opens the camera next time.
+    LaunchedEffect(frozen) { onPhotoChange(frozen?.takeIf { it.fromPhoto }) }
     var hasFlash by remember { mutableStateOf(false) }
     var reading by remember { mutableStateOf(false) }
     var photoFailed by remember { mutableStateOf(false) }
@@ -202,7 +210,7 @@ fun ScannerScreen(
                 onTap = { x, y ->
                     val hit = hitTest(live, x, y, context)
                     val shot = preview.view?.bitmap
-                    if (frozen == null && hit != null && shot != null) freeze(Frozen(shot.asImageBitmap(), live, hit))
+                    if (frozen == null && hit != null && shot != null) freeze(Frozen(shot.asImageBitmap(), live, hit, fromPhoto = false))
                 },
             )
             if (frozen == null) Highlights(live, selected = 0, imageSize = null, onSelect = null)
@@ -559,7 +567,7 @@ private fun CameraWindow(darkBackground: Boolean) {
 private suspend fun readPhoto(context: Context, uri: Uri, recognizer: TextRecognizer, digits: Int): Frozen? = try {
     val bitmap: Bitmap = withContext(Dispatchers.IO) { loadPhoto(context, uri) }
     val candidates = PriceParser.candidates(recognizer.read(bitmap).toOcrLines(), digits)
-    Frozen(bitmap.asImageBitmap(), candidates, candidates.indices.firstOrNull())
+    Frozen(bitmap.asImageBitmap(), candidates, candidates.indices.firstOrNull(), fromPhoto = true)
 } catch (e: CancellationException) {
     throw e
 } catch (e: Exception) {

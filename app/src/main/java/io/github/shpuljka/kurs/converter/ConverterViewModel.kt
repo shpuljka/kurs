@@ -9,6 +9,7 @@ import io.github.shpuljka.kurs.data.CountryDetector
 import io.github.shpuljka.kurs.data.Rates
 import io.github.shpuljka.kurs.data.RatesRepository
 import io.github.shpuljka.kurs.data.SavedConverter
+import io.github.shpuljka.kurs.scan.Frozen
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -103,6 +104,9 @@ class ConverterViewModel(app: Application) : AndroidViewModel(app) {
     fun selectAll() = updateModel { it.selectAll() }
 
     fun select(index: Int) = _state.update { it.copy(model = it.model.select(index, it.rates)) }
+
+    /** Gallery photo open when the scanner was last left; shown again on the next open. Memory only. */
+    var lastScanPhoto: Frozen? = null
 
     /** A price from the scanner, spec.md §12.5. */
     fun insertScanned(amount: BigDecimal) = updateModel { it.insertScanned(it.scanTarget(local), amount) }
