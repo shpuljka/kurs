@@ -97,6 +97,12 @@ class ConverterViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Pull to refresh: refreshes and returns when done, so the indicator can follow it. */
+    suspend fun refreshAndWait() {
+        refresh()
+        refreshJob?.join()
+    }
+
     fun press(key: Key) = updateModel { it.press(key) }
 
     fun moveCursor(position: Int) = updateModel { it.moveCursor(position) }

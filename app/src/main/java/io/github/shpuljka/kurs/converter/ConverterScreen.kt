@@ -1,5 +1,14 @@
 package io.github.shpuljka.kurs.converter
 
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import kotlinx.coroutines.launch
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -70,7 +79,7 @@ fun ConverterRoute(onSettings: () -> Unit, onScan: () -> Unit, viewModel: Conver
         onRemove = viewModel::remove,
         onChipClick = { pickerFor = it },
         onAdd = { pickerFor = ADD_ROW },
-        onRefresh = viewModel::refresh,
+        onRefresh = viewModel::refreshAndWait,
         onSettings = onSettings,
         onScan = onScan,
     )
@@ -108,7 +117,7 @@ fun ConverterScreen(
     onRemove: (Int) -> Unit,
     onChipClick: (Int) -> Unit,
     onAdd: () -> Unit,
-    onRefresh: () -> Unit,
+    onRefresh: suspend () -> Unit,
     onSettings: () -> Unit,
     onScan: () -> Unit,
 ) {
@@ -120,6 +129,7 @@ fun ConverterScreen(
     // Same instance while the expression is unchanged, so the cursor's effects and tap detector don't restart.
     val editable = remember(format, model.expr) { format.editable(model.expr) }
     val noValue = stringResource(R.string.no_value)
+    val pullState = rememberPullToRefreshState()
 
     Column(
         modifier = Modifier
@@ -129,62 +139,94 @@ fun ConverterScreen(
             .padding(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Header(country = state.country, locale = locale, onScan = onScan, onSettings = onSettings)
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(2.dp),
-        ) {
-            itemsIndexed(model.codes, key = { _, code -> code }) { index, code ->
-                val active = index == model.active
-                val value = values[index]
-                val amount = if (value == null) noValue else format.amount(value, Currencies.fractionDigits(code))
-                val input = if (active) AmountInput(editable, model.selStart, model.selEnd) else null
-                SwipeToRemove(enabled = model.canRemove, onRemove = { onRemove(index) }, modifier = Modifier.animateItem()) {
-                    CurrencyRow(
-                        code = code,
-                        amount = amount,
-                        input = input,
-                        showsExpression = Calculator.hasOperation(model.expr),
-                        onChipClick = { onChipClick(index) },
-                        onSelect = { onSelect(index) },
-                        onCursor = onCursor,
-                        onSelectAll = onSelectAll,
-                    )
-                }
+        val scope = rememberCoroutineScope()
+        // Spinner only for a pull; the automatic refresh on launch shows in the rates line.
+        var pulling by remember { mutableStateOf(false) }
+        val refresh: () -> Unit = {
+            scope.launch {
+                pulling = true
+                try { onRefresh() } finally { pulling = false }
             }
-            if (model.canAdd) {
-                item(key = "add") {
-                    AddButton(onAdd, Modifier.animateItem())
+        }
+        Header(state, locale, onRefresh = refresh, onScan = onScan, onSettings = onSettings)
+
+        // Pull down on the rows to refresh rates (spec.md §1.4).
+        PullToRefreshBox(
+            isRefreshing = pulling,
+            onRefresh = refresh,
+            modifier = Modifier.weight(1f),
+            state = pullState,
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullState,
+                    isRefreshing = pulling,
+                    containerColor = c.surface,
+                    color = c.accent,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            },
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(2.dp),
+            ) {
+                itemsIndexed(model.codes, key = { _, code -> code }) { index, code ->
+                    val active = index == model.active
+                    val value = values[index]
+                    val amount = if (value == null) noValue else format.amount(value, Currencies.fractionDigits(code))
+                    val input = if (active) AmountInput(editable, model.selStart, model.selEnd) else null
+                    SwipeToRemove(enabled = model.canRemove, onRemove = { onRemove(index) }, modifier = Modifier.animateItem()) {
+                        CurrencyRow(
+                            code = code,
+                            amount = amount,
+                            input = input,
+                            showsExpression = Calculator.hasOperation(model.expr),
+                            onChipClick = { onChipClick(index) },
+                            onSelect = { onSelect(index) },
+                            onCursor = onCursor,
+                            onSelectAll = onSelectAll,
+                        )
+                    }
+                }
+                if (model.canAdd) {
+                    item(key = "add") {
+                        AddButton(onAdd, Modifier.animateItem())
+                    }
                 }
             }
         }
 
-        RatesLine(state, locale, onRefresh)
         Keypad(onKey = onKey)
     }
 }
 
 @Composable
-private fun Header(country: String?, locale: Locale, onScan: () -> Unit, onSettings: () -> Unit) {
+private fun Header(state: ConverterUiState, locale: Locale, onRefresh: () -> Unit, onScan: () -> Unit, onSettings: () -> Unit) {
     val c = KursTheme.colors
-    Row(modifier = Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.converter_title), style = MaterialTheme.typography.headlineSmall, color = c.fg)
-        if (country != null) {
-            val name = remember(country, locale) { Locale.Builder().setRegion(country).build().getDisplayCountry(locale) }
-            Text(
-                name,
-                style = MaterialTheme.typography.labelSmall,
-                color = c.accentText,
-                modifier = Modifier
-                    .padding(start = 10.dp)
-                    .clip(KursShapes.pill)
-                    .background(c.tag)
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-            )
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(R.string.converter_title), style = MaterialTheme.typography.headlineSmall, color = c.fg)
+            // Country badge and rates date share the second line, so long country names fit.
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (state.country != null) {
+                    val name = remember(state.country, locale) { Locale.Builder().setRegion(state.country).build().getDisplayCountry(locale) }
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = c.accentText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .clip(KursShapes.pill)
+                            .background(c.tag)
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                    )
+                }
+                RatesLine(state, locale, onRefresh)
+            }
         }
-        Box(Modifier.weight(1f))
         HeaderButton(R.drawable.ic_camera, stringResource(R.string.scan_open), onScan)
         HeaderButton(R.drawable.ic_menu, stringResource(R.string.settings), onSettings, Modifier.padding(start = 10.dp))
     }
@@ -255,6 +297,7 @@ private fun AddButton(onAdd: () -> Unit, modifier: Modifier) {
     }
 }
 
+/** Rates date under the title, spec.md §1.4. Refreshing is a pull on the rows; screen readers get it as an action here. */
 @Composable
 private fun RatesLine(state: ConverterUiState, locale: Locale, onRefresh: () -> Unit) {
     val c = KursTheme.colors
@@ -265,30 +308,15 @@ private fun RatesLine(state: ConverterUiState, locale: Locale, onRefresh: () -> 
         RatesStatus.Offline -> stringResource(R.string.rates_as_of, date.orEmpty()) + " · " + stringResource(R.string.rates_offline)
         RatesStatus.Fresh, RatesStatus.Refreshing -> stringResource(R.string.rates_as_of, date.orEmpty())
     }
-    val busy = state.status == RatesStatus.Loading || state.status == RatesStatus.Refreshing
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text, style = MaterialTheme.typography.bodySmall, color = c.muted, modifier = Modifier.weight(1f))
-        IconButton(
-            onClick = onRefresh,
-            enabled = !busy,
-            modifier = Modifier.size(48.dp),
-        ) {
-            Box(
-                modifier = Modifier.size(36.dp).clip(KursShapes.pill).background(c.surface),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painterResource(R.drawable.ic_refresh),
-                    contentDescription = stringResource(R.string.refresh_rates),
-                    tint = if (busy) c.muted else c.accentText,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
-    }
+    val refreshLabel = stringResource(R.string.refresh_rates)
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = c.muted,
+        maxLines = 2,
+        modifier = Modifier
+            .semantics { customActions = listOf(CustomAccessibilityAction(refreshLabel) { onRefresh(); true }) },
+    )
 }
 
 private fun formatDate(date: LocalDate, locale: Locale): String =
