@@ -81,7 +81,7 @@ class ConverterViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(model = model, recent = saved.recent.ifEmpty { model.codes }) }
     }
 
-    /** Spec §4: on every launch and by the refresh button. */
+    /** Spec §4: on every launch and by pulling the currency list down. */
     fun refresh() {
         if (refreshJob?.isActive == true) return
         _state.update { it.copy(status = if (it.rates == null) RatesStatus.Loading else RatesStatus.Refreshing) }

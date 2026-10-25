@@ -1,24 +1,15 @@
 package io.github.shpuljka.kurs.converter
 
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.semantics.semantics
-import kotlinx.coroutines.launch
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -32,15 +23,19 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,10 +44,13 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.flow.filter
 import io.github.shpuljka.kurs.R
 import io.github.shpuljka.kurs.calc.AmountFormat
 import io.github.shpuljka.kurs.calc.Calculator
@@ -64,6 +62,8 @@ import io.github.shpuljka.kurs.ui.theme.KursTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
 
 @Composable
 fun ConverterRoute(onSettings: () -> Unit, onScan: () -> Unit, viewModel: ConverterViewModel = viewModel()) {
@@ -207,8 +207,12 @@ private fun Header(state: ConverterUiState, locale: Locale, onRefresh: () -> Uni
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(R.string.converter_title), style = MaterialTheme.typography.headlineSmall, color = c.fg)
-            // Country badge and rates date share the second line, so long country names fit.
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Country badge and rates date share the second line; a long date ("… · offline") wraps under the badge.
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
                 if (state.country != null) {
                     val name = remember(state.country, locale) { Locale.Builder().setRegion(state.country).build().getDisplayCountry(locale) }
                     Text(
@@ -218,7 +222,6 @@ private fun Header(state: ConverterUiState, locale: Locale, onRefresh: () -> Uni
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
-                            .weight(1f, fill = false)
                             .clip(KursShapes.pill)
                             .background(c.tag)
                             .padding(horizontal = 10.dp, vertical = 4.dp),
@@ -314,6 +317,7 @@ private fun RatesLine(state: ConverterUiState, locale: Locale, onRefresh: () -> 
         style = MaterialTheme.typography.bodySmall,
         color = c.muted,
         maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .semantics { customActions = listOf(CustomAccessibilityAction(refreshLabel) { onRefresh(); true }) },
     )
