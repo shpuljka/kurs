@@ -64,11 +64,15 @@ fun historySources(date: LocalDate): List<RatesSource> = listOf(
 )
 
 /**
- * Primary, its mirror, then the fallback provider. pages.dev goes first: jsDelivr caches `@latest`
+ * The primary provider's two mirrors. pages.dev goes first: jsDelivr caches `@latest`
  * for up to 12 hours (s-maxage=43200) and keeps serving yesterday's rates well into the morning.
  */
 val DEFAULT_SOURCES: List<RatesSource> = listOf(
     HttpSource("https://latest.currency-api.pages.dev/v1/currencies/usd.min.json", RatesParser::fawazahmed),
     HttpSource("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json", RatesParser::fawazahmed),
+)
+
+/** Another provider, used only when neither mirror answers. */
+val FALLBACK_SOURCES: List<RatesSource> = listOf(
     HttpSource("https://open.er-api.com/v6/latest/USD", RatesParser::openErApi),
 )

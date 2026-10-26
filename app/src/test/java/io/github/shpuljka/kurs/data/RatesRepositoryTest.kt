@@ -26,8 +26,8 @@ class RatesRepositoryTest {
 
     private fun rates(date: LocalDate, rub: String = "80") = Rates(date, mapOf("USD" to BigDecimal.ONE, "RUB" to BigDecimal(rub)))
 
-    private fun repository(vararg sources: RatesSource) =
-        RatesRepository(folder.root.resolve("rates.json"), sources.toList()) { today }
+    private fun repository(vararg sources: RatesSource, fallback: List<RatesSource> = emptyList()) =
+        RatesRepository(folder.root.resolve("rates.json"), sources.toList(), fallback) { today }
 
     @Test fun `stops at the first source with today's rates`() = runBlocking {
         val second = Source(rates(today, "81"))
@@ -58,7 +58,34 @@ class RatesRepositoryTest {
         assertEquals(BigDecimal("81"), result?.perUsd?.get("RUB"))
     }
 
+    @Test fun `the fallback isn't asked when a mirror answered, even with yesterday's rates`() = runBlocking {
+        val fallback = Source(rates(today, "81"))
+        assertEquals(yesterday, repository(Source(rates(yesterday)), fallback = listOf(fallback)).refresh()?.date)
+        assertEquals(0, fallback.calls)
+    }
+
+    @Test fun `the fallback answers when no mirror did`() = runBlocking {
+        val result = repository(Source(null), Source(null), fallback = listOf(Source(rates(today, "81")))).refresh()
+        assertEquals(BigDecimal("81"), result?.perUsd?.get("RUB"))
+    }
+
+    @Test fun `a failing mirror between a stale and a fresh one is skipped`() = runBlocking {
+        assertEquals(today, repository(Source(rates(yesterday)), Source(null), Source(rates(today))).refresh()?.date)
+    }
+
+    @Test fun `rates of the same date replace the cached ones`() = runBlocking {
+        repository(Source(rates(today))).refresh()
+        repository(Source(rates(today, "81"))).refresh()
+        assertEquals(BigDecimal("81"), repository().cached()?.perUsd?.get("RUB"))
+    }
+
+    @Test fun `a corrupt cache doesn't block fresh rates`() = runBlocking {
+        folder.root.resolve("rates.json").writeText("{not json")
+        assertEquals(today, repository(Source(rates(today))).refresh()?.date)
+        assertEquals(today, repository().cached()?.date)
+    }
+
     @Test fun `every source failed`() = runBlocking {
-        assertNull(repository(Source(null), Source(null)).refresh())
+        assertNull(repository(Source(null), Source(null), fallback = listOf(Source(null))).refresh())
     }
 }

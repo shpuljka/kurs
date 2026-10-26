@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.os.Build
 import android.util.Log
 import android.os.LocaleList
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -23,12 +24,13 @@ import java.time.LocalTime
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 
-/** Fetches today's and yesterday's rates and builds the digest; shared by the worker and the settings preview. */
+/** Fetches today's and yesterday's rates and builds the digest. */
 class DigestRepository(context: Context) {
     private val rates = RatesRepository(File(context.filesDir, "rates.json"))
 
-    suspend fun load(pairs: List<CurrencyPair>): Digest? {
-        val today = rates.refresh() ?: rates.cached() ?: return null
+    /** Null if no source answered and either [useCached] is false or nothing is cached. */
+    suspend fun load(pairs: List<CurrencyPair>, useCached: Boolean): Digest? {
+        val today = rates.refresh() ?: (if (useCached) rates.cached() else null) ?: return null
         return DigestBuilder.build(pairs, today, rates.history(today.date.minusDays(1)))
     }
 }
@@ -64,7 +66,11 @@ object DigestScheduler {
     private fun request(time: LocalTime) = OneTimeWorkRequestBuilder<DigestWorker>()
         .setInitialDelay(DigestBuilder.delayUntil(ZonedDateTime.now(), time).toMillis(), TimeUnit.MILLISECONDS)
         .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+        .setBackoffCriteria(BackoffPolicy.LINEAR, RETRY_DELAY_MINUTES, TimeUnit.MINUTES)
         .build()
+
+    /** Retries come 5 and then 10 minutes apart, so the last attempt is ~15 minutes late (spec §6.3). */
+    private const val RETRY_DELAY_MINUTES = 5L
 }
 
 class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
@@ -77,8 +83,10 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         // Without settings we don't know the time; retrying (with backoff) keeps the chain alive.
         val settings = attempt { prefs.digestOrDefault() } ?: return Result.retry()
         if (!settings.enabled) return Result.success()
-        val digest = attempt { DigestRepository(applicationContext).load(settings.pairs) }
-        if (digest == null && runAttemptCount < MAX_ATTEMPTS) return Result.retry()
+        // A network hiccup shouldn't turn into a push with cached rates: retry first, fall back to the cache last.
+        val lastAttempt = runAttemptCount >= MAX_RETRIES
+        val digest = attempt { DigestRepository(applicationContext).load(settings.pairs, useCached = lastAttempt) }
+        if (digest == null && !lastAttempt) return Result.retry()
         digest?.let { attempt { DigestNotifier.show(localized(prefs), it) } }
         DigestScheduler.scheduleNext(applicationContext, settings.time)
         return Result.success()
@@ -109,6 +117,6 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
 
     private companion object {
         const val TAG = "DigestWorker"
-        const val MAX_ATTEMPTS = 3
+        const val MAX_RETRIES = 2
     }
 }
