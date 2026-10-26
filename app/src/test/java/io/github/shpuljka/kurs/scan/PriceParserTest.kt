@@ -267,4 +267,45 @@ class PriceParserTest {
     @Test fun `on a tie the number with cents wins`() = assertEquals("1.99", best(line(W("3"), W("1,99"))))
 
     @Test fun `on a full tie the right-most number wins`() = assertEquals("5", best(line(W("3"), W("5"))))
+
+    // --- small print glued to the price (real Kazakh tags) --------------------
+
+    @Test fun `a date's year glued after the cents is dropped`() = assertEquals("1155", best(line(W("1155,002026"))))
+
+    @Test fun `a day digit before the glued year too`() = assertEquals("1155", best(line(W("1155,0072026"))))
+
+    @Test fun `the glued year leaves the box on the price`() {
+        val candidate = PriceParser.candidates(listOf(line(W("1155,002026"))), 2).single()
+        assertEquals(line(W("1155,00")).words.single().last().box.right, candidate.box.right)
+    }
+
+    @Test fun `a mangled tail after the cents is dropped`() = assertEquals("1140", best(line(W("1140,0g2020"))))
+
+    @Test fun `a unit after a decimal is still a weight`() = assertNull(best(line(W("1,5g"))))
+
+    @Test fun `four digits after a separator still aren't a price`() = assertNull(best(line(W("1.2026"))))
+
+    @Test fun `the time after a date isn't a price`() =
+        assertEquals(listOf("1155"), amounts(line(W("1155,002026"), W("11.04"))))
+
+    @Test fun `a price after a full date is kept`() =
+        assertEquals("129.99", best(line(W("25.10.2026", h = 20f), W("129,99"))))
+
+    @Test fun `no space thousands after a decimal`() =
+        assertEquals(listOf("3265", "112"), amounts(line(W("3265.00"), W("112"))))
+
+    // --- what wins ---------------------------------------------------------
+
+    @Test fun `cents beat a bare number of the same size`() = assertEquals("965", best(line(W("965.00"), W("2020624"))))
+
+    @Test fun `a huge lone digit loses to the price`() =
+        assertEquals("735", best(line(W("1", h = 200f)), line(W("735,00", h = 80f), y = 300f)))
+
+    @Test fun `a lone digit with a currency is a price`() = assertEquals("5", best(line(W("5", h = 80f), W("€", h = 80f)), line(W("2,99"))))
+
+    // "40 мин" on a pack, far above a big "1" and just right of it.
+    @Test fun `small digits far above a number aren't its cents`() =
+        assertFalse("1.4" in amounts(line(W("40", gap = 140f)), line(W("1", h = 200f), y = 600f)))
+
+    @Test fun `400rp is grams`() = assertNull(best(line(W("400rp"))))
 }

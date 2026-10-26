@@ -32,12 +32,21 @@ data class PriceCandidate(
     val perUnit: Boolean,
     /** The digits when printed as a bare integer (no separators or cents): may pair with raised cents on another line. */
     val bareDigits: String? = null,
+    /** Printed with two-digit cents ("965,00", "129⁹⁹"): codes, years and weights rarely are. */
+    val cents: Boolean = false,
 ) {
-    val score: Float get() = size * (if (hasCurrency) CURRENCY_BOOST else 1f) * (if (perUnit) PER_UNIT_PENALTY else 1f)
+    val score: Float get() = size *
+        (if (hasCurrency) CURRENCY_BOOST else 1f) *
+        (if (perUnit) PER_UNIT_PENALTY else 1f) *
+        (if (cents) CENTS_BOOST else 1f) *
+        // A lone digit without a currency is a pack size or a step number ("КРУПНЫЙ РАЗМЕР 1"), not a price.
+        (if (!hasCurrency && bareDigits?.length == 1) LONE_DIGIT_PENALTY else 1f)
 
     private companion object {
         const val CURRENCY_BOOST = 1.5f
         const val PER_UNIT_PENALTY = 0.5f
+        const val CENTS_BOOST = 1.2f
+        const val LONE_DIGIT_PENALTY = 0.25f
     }
 }
 
@@ -76,6 +85,7 @@ object PriceParser {
                 hasCurrency = price.hasCurrency || cents.hasCurrency,
                 perUnit = price.perUnit || cents.perUnit,
                 bareDigits = null,
+                cents = true,
             )
         }
         return joined.filter { it !in used }
@@ -124,7 +134,8 @@ object PriceParser {
             if (glued && !CURRENCY_AFTER.containsMatchIn(after)) continue
             val perUnit = PER_UNIT_AFTER.containsMatchIn(after) || PER_UNIT_BEFORE.containsMatchIn(before)
             // "0,89/100g" is a price per unit, not a date.
-            val dateLike = TIME_OR_DATE_BEFORE.containsMatchIn(before) || (!perUnit && TIME_OR_DATE_AFTER.containsMatchIn(after))
+            val dateLike = TIME_OR_DATE_BEFORE.containsMatchIn(before) || (TIME_AFTER_DATE.containsMatchIn(before) && TIME.matches(run.main)) ||
+                (!perUnit && TIME_OR_DATE_AFTER.containsMatchIn(after))
             if (isDate(run.main) || dateLike) continue
             found += PriceCandidate(
                 amount = amount,
@@ -133,6 +144,7 @@ object PriceParser {
                 hasCurrency = CURRENCY_AFTER.containsMatchIn(after) || CURRENCY_BEFORE.containsMatchIn(before),
                 perUnit = perUnit,
                 bareDigits = run.main.takeIf { run.cents == null && !run.whole && it.all(Char::isDigit) },
+                cents = fractionDigits > 0 && (run.cents != null || TWO_DIGIT_FRACTION.containsMatchIn(run.main)),
             )
         }
         return found
@@ -155,6 +167,8 @@ object PriceParser {
     /** Reads one number starting at slot [start]. */
     private fun number(slots: List<Slot>, start: Int): Run {
         val main = StringBuilder()
+        // Slot of each char in [main]; -1 for the space between thousands.
+        val slotOf = mutableListOf<Int>()
         val digitBoxes = mutableListOf<Box>()
         var box = slots[start].glyph.box
         var i = start
@@ -171,16 +185,17 @@ object PriceParser {
                 s.c.isDigit() && (i == start || !s.wordStart) -> {
                     // A smaller digit ends the number: raised cents are read below, anything else is dropped.
                     if (digitBoxes.isNotEmpty() && !similar(s.glyph.box.height, mainHeight())) break
-                    main.append(s.c); digitBoxes += s.glyph.box; take(i); group++; i++
+                    main.append(s.c); slotOf += i; digitBoxes += s.glyph.box; take(i); group++; i++
                 }
                 // Thousands separated by a space: "1 299" arrives as two words.
-                s.c.isDigit() && s.wordStart && group in 1..3 && digitsAhead(slots, i) == 3 &&
+                // Not after a decimal separator: "3265.00 112" is a price and another number.
+                s.c.isDigit() && s.wordStart && group in 1..3 && main.none { it in SEPARATORS } && digitsAhead(slots, i) == 3 &&
                     similar(s.glyph.box.height, mainHeight()) && !isRaised(s.glyph.box, digitBoxes.first(), mainHeight()) -> {
-                    main.append(' ').append(s.c); digitBoxes += s.glyph.box; take(i); group = 1; i++
+                    main.append(' ').append(s.c); slotOf += -1; slotOf += i; digitBoxes += s.glyph.box; take(i); group = 1; i++
                 }
                 s.c in SEPARATORS && !s.wordStart && i + 1 < slots.size && slots[i + 1].c.isDigit() && !slots[i + 1].wordStart &&
                     !isRaised(slots[i + 1].glyph.box, digitBoxes.first(), mainHeight()) -> {
-                    main.append(s.c); take(i); group = 0; i++
+                    main.append(s.c); slotOf += i; take(i); group = 0; i++
                 }
                 s.c in ".," && i + 1 < slots.size && slots[i + 1].c in DASHES && !slots[i + 1].wordStart -> {
                     whole = true; take(i); take(i + 1); i += 2
@@ -188,6 +203,25 @@ object PriceParser {
                 }
                 else -> break
             }
+        }
+        // Small print glued to the price: "1155,00" + "2026" of a date ("1155,002026"), or a mangled
+        // digit and the rest ("1140,0g2020"). Keep the price and drop the rest of the word.
+        val sep = main.indexOfLast { it in SEPARATORS }
+        val fraction = if (sep >= 0) main.substring(sep + 1) else ""
+        val gluedYear = fraction.length > 2 && GLUED_YEAR.matches(fraction.substring(2))
+        val gluedJunk = fraction.length in 1..2 && i < slots.size && !slots[i].wordStart && slots[i].c.isLetter() &&
+            (i + 1 until slots.size).takeWhile { !slots[it].wordStart }.count { slots[it].c.isDigit() } >= GLUED_TAIL_DIGITS
+        if (gluedYear || gluedJunk) {
+            if (gluedYear) {
+                val keep = sep + 3
+                val dropped = main.substring(keep).count(Char::isDigit)
+                main.setLength(keep)
+                repeat(dropped) { digitBoxes.removeAt(digitBoxes.lastIndex) }
+                box = slots[start].glyph.box
+                for (k in start..slotOf[keep - 1]) take(k)
+            }
+            while (i < slots.size && !slots[i].wordStart) i++
+            return Run(start, i, main.toString(), null, false, box, mainHeight(), rejected = false)
         }
         // Raised cents right after the main digits, in the same word or just after it.
         if (!whole && i < slots.size && digitBoxes.isNotEmpty()) {
@@ -220,9 +254,13 @@ object PriceParser {
         return k - from
     }
 
-    /** A digit printed smaller and raised: its top near the main digits' top, well above their bottom. */
+    /**
+     * A digit printed smaller and raised: its top near the main digits' top, well above their bottom.
+     * Not above the main digits altogether: that is some other print ("40 мин" on a pack above a big "1").
+     */
     private fun isRaised(b: Box, mainFirst: Box, mainHeight: Float): Boolean =
-        b.height < mainHeight * 0.75f && b.bottom < mainFirst.bottom - mainHeight * 0.25f && b.top < mainFirst.top + mainHeight * 0.35f
+        b.height < mainHeight * 0.75f && b.bottom < mainFirst.bottom - mainHeight * 0.25f &&
+            b.top < mainFirst.top + mainHeight * 0.35f && b.top > mainFirst.top - mainHeight * 0.35f
 
     private fun similar(a: Float, b: Float) = a > b * 0.75f && a < b * 1.33f
 
@@ -257,10 +295,12 @@ object PriceParser {
     private const val DASHES = "-–—"
     private const val MAX_CODE_DIGITS = 8
     private const val MAX_DIGITS = 12
+    /** Digits after a glued letter that make it the rest of a date, not a unit ("1140,0g2020" vs "1,5g"). */
+    private const val GLUED_TAIL_DIGITS = 3
 
     // The bundled model reads Latin only, so Cyrillic comes back as look-alikes: "мл" → "mn", "г" → "r",
-    // "шт" → "wt", "руб." → "py6.", "тг" → "tr", "за" → "3a". Both spellings are listed.
-    private const val UNITS = "kg|g|gr|mg|l|ml|cl|dl|cm|mm|m|oz|lb|lbs|pcs|pc|шт|кг|г|гр|мг|л|мл|см|мм|м|r|n|mn|wt|ut|%"
+    // "шт" → "wt", "руб." → "py6.", "тг" → "tr", "за" → "3a", "гр" → "rp". Both spellings are listed.
+    private const val UNITS = "kg|g|gr|mg|l|ml|cl|dl|cm|mm|m|oz|lb|lbs|pcs|pc|шт|кг|г|гр|мг|л|мл|см|мм|м|r|rp|n|mn|wt|ut|%"
     private const val CURRENCY = "[€$£¥₸₽₺₹₩₴₪₫฿₱₦₼₾]|eur|usd|gbp|rub|kzt|chf|aed|try|pln|czk|huf|sek|nok|dkk|uah|" +
         "руб|py[6бõo]|р\\.?|p\\.?|тг|tr|t|тенге|грн|zł|kč|kr|ft|lei|fr\\.?|[a-z]{1,2}\\$|rs\\.?|rm|s/\\.?|rp"
 
@@ -277,4 +317,10 @@ object PriceParser {
     // "12:30", "25/10": the neighbour across ':' or '/' is a digit.
     private val TIME_OR_DATE_BEFORE = Regex("\\d[:/]$")
     private val TIME_OR_DATE_AFTER = Regex("^[:/]\\d")
+    // Right after a date's year comes its time, often with a dot: "… 07.2026 11.04".
+    private val TIME_AFTER_DATE = Regex("[.,/]\\d*(19|20)\\d\\d\\s$")
+    // The rest of a date after the cents: "2026", "72026" (a day digit), "02026".
+    private val TIME = Regex("([01]?\\d|2[0-3])[.,][0-5]\\d")
+    private val GLUED_YEAR = Regex("\\d{0,3}(19|20)\\d\\d")
+    private val TWO_DIGIT_FRACTION = Regex("[.,]\\d\\d$")
 }
