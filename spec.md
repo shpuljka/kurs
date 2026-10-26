@@ -83,9 +83,11 @@ C   %   ⌫   ÷
 - Ручное обновление — свайпом вниз по списку валют.
 - Источник курсов:
   - основной — **fawazahmed0/currency-api** (без ключа, 339 валют, история по дате):
-    `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@{latest|YYYY-MM-DD}/v1/currencies/{base}.min.json`,
-    запасной домен `https://{latest|YYYY-MM-DD}.currency-api.pages.dev/v1/currencies/{base}.min.json`;
+    `https://{latest|YYYY-MM-DD}.currency-api.pages.dev/v1/currencies/{base}.min.json`,
+    зеркало `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@{latest|YYYY-MM-DD}/v1/currencies/{base}.min.json`
+    (jsDelivr кэширует `@latest` до 12 часов, поэтому для свежих курсов идёт вторым);
   - резервный — **open.er-api.com** (`https://open.er-api.com/v6/latest/{BASE}`, 166 валют, без истории, требует атрибуции).
+  - Источники опрашиваются по порядку до первого ответа с курсами за сегодня (по UTC); если такого нет — берутся самые свежие из полученных. Курсы старше сохранённых их не заменяют.
   - Отклонены: Frankfurter (нет RUB), ЦБ РФ (только к рублю), Google (публичного API нет).
 
 ## 5. Числа

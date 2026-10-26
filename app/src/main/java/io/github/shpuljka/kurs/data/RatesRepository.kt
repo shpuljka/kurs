@@ -6,21 +6,35 @@ import org.json.JSONObject
 import java.io.File
 import java.math.BigDecimal
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 /** Fetches rates from the first working source and keeps the last success on disk. */
 class RatesRepository(
     private val cacheFile: File,
     private val sources: List<RatesSource> = DEFAULT_SOURCES,
+    private val today: () -> LocalDate = { LocalDate.now(ZoneOffset.UTC) },
 ) {
     suspend fun cached(): Rates? = withContext(Dispatchers.IO) {
         runCatching { decode(cacheFile.readText()) }.getOrNull()
     }
 
-    /** Returns fresh rates, or null if every source failed. */
+    /**
+     * Returns fresh rates, or null if every source failed. A CDN may serve yesterday's file for hours,
+     * so when the first answer isn't dated today the other sources are asked too and the newest wins.
+     * Rates older than the cached ones never replace them.
+     */
     suspend fun refresh(): Rates? = withContext(Dispatchers.IO) {
-        val rates = sources.firstNotNullOfOrNull { runCatching { it.fetch() }.getOrNull() } ?: return@withContext null
-        runCatching { cacheFile.writeText(encode(rates)) }
-        rates
+        var newest: Rates? = null
+        for (source in sources) {
+            val rates = runCatching { source.fetch() }.getOrNull() ?: continue
+            if (newest == null || rates.date > newest.date) newest = rates
+            if (newest.date >= today()) break
+        }
+        if (newest == null) return@withContext null
+        val cached = runCatching { decode(cacheFile.readText()) }.getOrNull()
+        if (cached != null && cached.date > newest.date) return@withContext cached
+        runCatching { cacheFile.writeText(encode(newest)) }
+        newest
     }
 
     /** Rates as they were on [date], or null if unavailable. Not cached. */
