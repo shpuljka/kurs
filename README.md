@@ -41,7 +41,7 @@
 
 ## Релизы
 
-Новая версия выпускается тегом: `git tag v0.3.0 && git push origin v0.3.0`. GitHub Actions прогонит тесты, соберёт подписанный APK и выложит его в [Releases](https://github.com/shpuljka/kurs/releases).
+Новая версия выпускается тегом: `git tag v0.3.2 && git push origin v0.3.2`. GitHub Actions прогонит тесты, соберёт подписанный APK и выложит его в [Releases](https://github.com/shpuljka/kurs/releases).
 
 ## Устройство
 
