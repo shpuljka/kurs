@@ -13,3 +13,6 @@
 *.aab
 *.jks
 *.keystore
+
+# Raw photos for scanner testing; their OCR output lives in app/src/test/resources/ocr/
+/Test data/

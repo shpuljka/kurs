@@ -308,4 +308,22 @@ class PriceParserTest {
         assertFalse("1.4" in amounts(line(W("40", gap = 140f)), line(W("1", h = 200f), y = 600f)))
 
     @Test fun `400rp is grams`() = assertNull(best(line(W("400rp"))))
+
+    // --- review of the real-tags rules -------------------------------------
+
+    @Test fun `a glued currency and per-unit are still read`() {
+        val c = PriceParser.candidates(listOf(line(W("89,90py6/100r"))), 2).single()
+        assertTrue(c.hasCurrency)
+        assertTrue(c.perUnit)
+    }
+
+    @Test fun `a glued zloty per 100 g too`() = assertTrue(PriceParser.candidates(listOf(line(W("0,99zł/100g"))), 2).single().perUnit)
+
+    @Test fun `a date with a dot missed isn't a price`() = assertNull(best(line(W("25.072026"))))
+
+    @Test fun `a whole price beats a slightly smaller old price with cents`() =
+        assertEquals("12", best(line(W("12.–")), line(W("14,99", h = 36f), y = 100f)))
+
+    @Test fun `a bare price beats a slightly smaller old price with cents`() =
+        assertEquals("129", best(line(W("129")), line(W("14,99", h = 36f), y = 100f)))
 }

@@ -32,7 +32,7 @@ data class PriceCandidate(
     val perUnit: Boolean,
     /** The digits when printed as a bare integer (no separators or cents): may pair with raised cents on another line. */
     val bareDigits: String? = null,
-    /** Printed with two-digit cents ("965,00", "129⁹⁹"): codes, years and weights rarely are. */
+    /** Printed as a price: with two-digit cents ("965,00", "129⁹⁹") or "12.–". Codes, years and weights rarely are. */
     val cents: Boolean = false,
 ) {
     val score: Float get() = size *
@@ -45,7 +45,8 @@ data class PriceCandidate(
     private companion object {
         const val CURRENCY_BOOST = 1.5f
         const val PER_UNIT_PENALTY = 0.5f
-        const val CENTS_BOOST = 1.2f
+        // Small: only to break near-ties, so a bare main price still beats a smaller old price with cents.
+        const val CENTS_BOOST = 1.1f
         const val LONE_DIGIT_PENALTY = 0.25f
     }
 }
@@ -144,7 +145,7 @@ object PriceParser {
                 hasCurrency = CURRENCY_AFTER.containsMatchIn(after) || CURRENCY_BEFORE.containsMatchIn(before),
                 perUnit = perUnit,
                 bareDigits = run.main.takeIf { run.cents == null && !run.whole && it.all(Char::isDigit) },
-                cents = fractionDigits > 0 && (run.cents != null || TWO_DIGIT_FRACTION.containsMatchIn(run.main)),
+                cents = run.whole || (fractionDigits > 0 && (run.cents != null || TWO_DIGIT_FRACTION.containsMatchIn(run.main))),
             )
         }
         return found
@@ -208,9 +209,15 @@ object PriceParser {
         // digit and the rest ("1140,0g2020"). Keep the price and drop the rest of the word.
         val sep = main.indexOfLast { it in SEPARATORS }
         val fraction = if (sep >= 0) main.substring(sep + 1) else ""
-        val gluedYear = fraction.length > 2 && GLUED_YEAR.matches(fraction.substring(2))
+        val integer = if (sep >= 0) main.substring(0, sep).filter(Char::isDigit) else ""
+        // "25.072026" is a date with a dot missed, not a price: a day, a month and the year.
+        val dotlessDate = integer.length <= 2 && fraction.length > 2 && fraction.substring(0, 2).toInt() in 1..12
+        val gluedYear = fraction.length > 2 && !dotlessDate && GLUED_YEAR.matches(fraction.substring(2))
+        val rest = (i until slots.size).takeWhile { it == i || !slots[it].wordStart }.joinToString("") { "${slots[it].c}" }.lowercase()
+        // A currency or "/100g" glued after the price ("89,90py6/100r") is read as usual, not dropped.
         val gluedJunk = fraction.length in 1..2 && i < slots.size && !slots[i].wordStart && slots[i].c.isLetter() &&
-            (i + 1 until slots.size).takeWhile { !slots[it].wordStart }.count { slots[it].c.isDigit() } >= GLUED_TAIL_DIGITS
+            !CURRENCY_AFTER.containsMatchIn(rest) && !PER_UNIT_AFTER.containsMatchIn(rest) &&
+            rest.count(Char::isDigit) >= GLUED_TAIL_DIGITS
         if (gluedYear || gluedJunk) {
             if (gluedYear) {
                 val keep = sep + 3
