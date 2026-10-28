@@ -16,3 +16,6 @@
 
 # Raw photos for scanner testing; their OCR output lives in app/src/test/resources/ocr/
 /Test data/
+
+# Claude Code session files
+/.claude/

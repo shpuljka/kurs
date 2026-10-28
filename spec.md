@@ -5,9 +5,10 @@
 - Название приложения: **Kurs** (одинаковое на всех языках; в лаунчере и Google Play)
 - applicationId: **`io.github.shpuljka.kurs`**
 - Платформа: Android, Kotlin, Jetpack Compose, **minSdk 29** (Android 10), compileSdk 37, targetSdk 36
+- Ориентация: **только вертикальная** (в горизонтальной клавиатура не оставляет места списку). На планшетах Android 16+ система может это игнорировать — тогда клавиатура обрезается снизу, ручка остаётся видна.
 - Сборка: AGP 9.4.1, Kotlin 2.4.21, Gradle 9.8.2, Compose BOM 2026.09.00, JDK 21 (версии — в `gradle/libs.versions.toml`)
 - Макеты: https://claude.ai/artifact/6mYt2HEUfGyX9B6bR42vRL (выбран вариант **4 · Мягкий** — `Main-4`, `Picker-4`, `Settings-4`)
-- Последнее обновление: 2026-10-25
+- Последнее обновление: 2026-10-28
 
 ---
 
