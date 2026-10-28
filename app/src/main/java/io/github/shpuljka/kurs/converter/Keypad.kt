@@ -96,10 +96,11 @@ fun Keypad(onKey: (Key) -> Unit, collapsed: Boolean?, onCollapsedChange: (Boolea
         ),
     )
     val c = KursTheme.colors
-    val fold = remember { AnchoredDraggableState(Fold.Open) }
+    // Starts where the model is, so coming back from Settings or the scanner doesn't flash the keys.
+    val fold = remember { AnchoredDraggableState(if (collapsed == true) Fold.Folded else Fold.Open) }
     val change by rememberUpdatedState(onCollapsedChange)
     // The restored state is snapped to; later changes (a tap on an amount, the scanner) animate.
-    var restored by remember { mutableStateOf(false) }
+    var restored by remember { mutableStateOf(collapsed != null) }
     LaunchedEffect(collapsed) {
         val target = when (collapsed) {
             null -> return@LaunchedEffect
@@ -113,8 +114,11 @@ fun Keypad(onKey: (Key) -> Unit, collapsed: Boolean?, onCollapsedChange: (Boolea
             fold.animateTo(target)
         }
     }
+    // Report where it came to rest after every drag or animation, even if that is where it started:
+    // a drag can interrupt the animation to a new value and bring the keypad back.
     LaunchedEffect(fold) {
-        snapshotFlow { fold.settledValue }.collect { if (restored) change(it == Fold.Folded) }
+        snapshotFlow { fold.settledValue to fold.isAnimationRunning }
+            .collect { (settled, moving) -> if (restored && !moving) change(settled == Fold.Folded) }
     }
     val folded = fold.settledValue == Fold.Folded
     val handleLabel = stringResource(if (folded) R.string.keypad_expand else R.string.keypad_collapse)
@@ -134,20 +138,24 @@ fun Keypad(onKey: (Key) -> Unit, collapsed: Boolean?, onCollapsedChange: (Boolea
                 }
                 if (fold.anchors != anchors) fold.updateAnchors(anchors)
                 val offset = fold.offset.takeUnless { it.isNaN() } ?: 0f
-                layout(placeable.width, (placeable.height - offset).roundToInt()) { placeable.place(0, 0) }
+                // Not taller than the room left (landscape): cut at the bottom, keep the handle in sight.
+                val height = (placeable.height - offset).roundToInt().coerceAtMost(constraints.maxHeight)
+                layout(placeable.width, height) { placeable.place(0, 0) }
             },
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(HANDLE_HEIGHT)
+                // Not before the saved state is read: it would overwrite the user's choice.
                 .anchoredDraggable(
                     fold,
                     reverseDirection = false,
                     orientation = Orientation.Vertical,
+                    enabled = restored,
                     flingBehavior = AnchoredDraggableDefaults.flingBehavior(fold, positionalThreshold = { it / 3 }),
                 )
-                .clickable(role = Role.Button, onClickLabel = handleLabel, indication = null, interactionSource = null) { change(!folded) }
+                .clickable(enabled = restored, role = Role.Button, indication = null, interactionSource = null) { change(!folded) }
                 .semantics { contentDescription = handleLabel }
                 .drawBehind {
                     // Two bars a third of the width wide, one above the other.
