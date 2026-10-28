@@ -11,6 +11,8 @@
     <string name="rates_offline">离线</string>
     <string name="rates_unavailable">无汇率——请检查网络连接</string>
     <string name="refresh_rates">刷新汇率</string>
+    <string name="keypad_collapse">收起键盘</string>
+    <string name="keypad_expand">展开键盘</string>
     <string name="key_clear">清除</string>
     <string name="key_percent">百分比</string>
     <string name="key_backspace">退格</string>

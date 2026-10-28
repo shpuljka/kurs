@@ -11,6 +11,8 @@
     <string name="rates_offline">sin conexión</string>
     <string name="rates_unavailable">Sin tipos: revisa tu conexión</string>
     <string name="refresh_rates">Actualizar tipos</string>
+    <string name="keypad_collapse">Ocultar teclado</string>
+    <string name="keypad_expand">Mostrar teclado</string>
     <string name="key_clear">Borrar</string>
     <string name="key_percent">Porcentaje</string>
     <string name="key_backspace">Retroceso</string>

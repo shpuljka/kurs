@@ -98,6 +98,13 @@ class AppPreferences(context: Context) {
         store.edit { it[LANGUAGE] = tag }
     }
 
+    /** Keypad folded down to its handle, spec.md §1.3. */
+    suspend fun keypadCollapsed(): Boolean = store.data.first()[KEYPAD_COLLAPSED] ?: false
+
+    suspend fun setKeypadCollapsed(collapsed: Boolean) {
+        store.edit { it[KEYPAD_COLLAPSED] = collapsed }
+    }
+
     suspend fun setTheme(mode: ThemeMode) {
         store.edit { it[THEME] = mode.name }
     }
@@ -117,6 +124,7 @@ class AppPreferences(context: Context) {
         val RECENT = stringPreferencesKey("recent")
         val LAST_LOCAL = stringPreferencesKey("last_local")
         val THEME = stringPreferencesKey("theme")
+        val KEYPAD_COLLAPSED = booleanPreferencesKey("keypad_collapsed")
         val LANGUAGE = stringPreferencesKey("language")
         val DIGEST_ENABLED = booleanPreferencesKey("digest_enabled")
         val DIGEST_MINUTES = intPreferencesKey("digest_minutes")

@@ -11,6 +11,8 @@
     <string name="rates_offline">오프라인</string>
     <string name="rates_unavailable">환율 없음 — 연결을 확인하세요</string>
     <string name="refresh_rates">환율 새로고침</string>
+    <string name="keypad_collapse">키패드 접기</string>
+    <string name="keypad_expand">키패드 펼치기</string>
     <string name="key_clear">지우기</string>
     <string name="key_percent">퍼센트</string>
     <string name="key_backspace">백스페이스</string>

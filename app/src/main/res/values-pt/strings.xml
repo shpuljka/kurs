@@ -11,6 +11,8 @@
     <string name="rates_offline">sem conexão</string>
     <string name="rates_unavailable">Sem cotações — verifique sua conexão</string>
     <string name="refresh_rates">Atualizar cotações</string>
+    <string name="keypad_collapse">Ocultar teclado</string>
+    <string name="keypad_expand">Mostrar teclado</string>
     <string name="key_clear">Limpar</string>
     <string name="key_percent">Porcentagem</string>
     <string name="key_backspace">Apagar</string>

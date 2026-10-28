@@ -76,6 +76,7 @@ fun ConverterRoute(onSettings: () -> Unit, onScan: () -> Unit, viewModel: Conver
         onSelect = viewModel::select,
         onCursor = viewModel::moveCursor,
         onSelectAll = viewModel::selectAll,
+        onKeypadCollapsedChange = viewModel::setKeypadCollapsed,
         onRemove = viewModel::remove,
         onChipClick = { pickerFor = it },
         onAdd = { pickerFor = ADD_ROW },
@@ -114,6 +115,7 @@ fun ConverterScreen(
     onSelect: (Int) -> Unit,
     onCursor: (Int) -> Unit,
     onSelectAll: () -> Unit,
+    onKeypadCollapsedChange: (Boolean) -> Unit,
     onRemove: (Int) -> Unit,
     onChipClick: (Int) -> Unit,
     onAdd: () -> Unit,
@@ -186,6 +188,8 @@ fun ConverterScreen(
                             onSelect = { onSelect(index) },
                             onCursor = onCursor,
                             onSelectAll = onSelectAll,
+                            // Nothing to type with while the keypad is folded.
+                            showCursor = state.keypadCollapsed != true,
                         )
                     }
                 }
@@ -197,7 +201,7 @@ fun ConverterScreen(
             }
         }
 
-        Keypad(onKey = onKey)
+        Keypad(onKey = onKey, collapsed = state.keypadCollapsed, onCollapsedChange = onKeypadCollapsedChange)
     }
 }
 

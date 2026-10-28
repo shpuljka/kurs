@@ -11,6 +11,8 @@
     <string name="rates_offline">ऑफ़लाइन</string>
     <string name="rates_unavailable">दरें नहीं — कनेक्शन जांचें</string>
     <string name="refresh_rates">दरें रीफ़्रेश करें</string>
+    <string name="keypad_collapse">कीपैड छिपाएँ</string>
+    <string name="keypad_expand">कीपैड दिखाएँ</string>
     <string name="key_clear">साफ़ करें</string>
     <string name="key_percent">प्रतिशत</string>
     <string name="key_backspace">बैकस्पेस</string>

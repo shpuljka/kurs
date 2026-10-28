@@ -11,6 +11,8 @@
     <string name="rates_offline">çevrimdışı</string>
     <string name="rates_unavailable">Kur yok — bağlantınızı kontrol edin</string>
     <string name="refresh_rates">Kurları yenile</string>
+    <string name="keypad_collapse">Tuş takımını gizle</string>
+    <string name="keypad_expand">Tuş takımını göster</string>
     <string name="key_clear">Temizle</string>
     <string name="key_percent">Yüzde</string>
     <string name="key_backspace">Sil</string>

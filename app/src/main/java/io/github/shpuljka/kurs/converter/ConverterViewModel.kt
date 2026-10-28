@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -44,6 +46,8 @@ data class ConverterUiState(
     val status: RatesStatus = RatesStatus.Loading,
     /** Most recently picked first; seeded with the rows on screen. */
     val recent: List<String> = model.codes,
+    /** Keypad folded down to its handle (spec.md §1.3); null until restored, so the screen doesn't animate on launch. */
+    val keypadCollapsed: Boolean? = null,
 )
 
 @OptIn(FlowPreview::class)
@@ -67,6 +71,9 @@ class ConverterViewModel(app: Application) : AndroidViewModel(app) {
                 .collect { prefs.saveConverter(it) }
         }
         viewModelScope.launch {
+            _state.map { it.keypadCollapsed }.filterNotNull().distinctUntilChanged().drop(1).collect { prefs.setKeypadCollapsed(it) }
+        }
+        viewModelScope.launch {
             val cached = repository.cached()
             if (cached != null) _state.update { it.copy(rates = cached) }
             refresh()
@@ -75,6 +82,8 @@ class ConverterViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Rows from the last session; a new country's currency moves to the top (spec §3). */
     private suspend fun restore() {
+        val collapsed = prefs.keypadCollapsed()
+        _state.update { it.copy(keypadCollapsed = collapsed) }
         val saved = prefs.converter() ?: return
         val travelled = local != null && saved.lastLocal != null && saved.lastLocal != local
         val model = if (travelled) saved.model.withLocal(local!!) else saved.model
@@ -105,17 +114,20 @@ class ConverterViewModel(app: Application) : AndroidViewModel(app) {
 
     fun press(key: Key) = updateModel { it.press(key) }
 
-    fun moveCursor(position: Int) = updateModel { it.moveCursor(position) }
+    fun moveCursor(position: Int) = updateModel(expand = true) { it.moveCursor(position) }
 
-    fun selectAll() = updateModel { it.selectAll() }
+    fun selectAll() = updateModel(expand = true) { it.selectAll() }
 
-    fun select(index: Int) = _state.update { it.copy(model = it.model.select(index, it.rates)) }
+    fun select(index: Int) = _state.update { it.withKeypad().copy(model = it.model.select(index, it.rates)) }
+
+    /** The handle was dragged or tapped. */
+    fun setKeypadCollapsed(collapsed: Boolean) = _state.update { it.copy(keypadCollapsed = collapsed) }
 
     /** Gallery photo open when the scanner was last left; shown again on the next open. Memory only. */
     var lastScanPhoto: Frozen? = null
 
     /** A price from the scanner, spec.md §12.5. */
-    fun insertScanned(amount: BigDecimal) = updateModel { it.insertScanned(it.scanTarget(local), amount) }
+    fun insertScanned(amount: BigDecimal) = updateModel(expand = true) { it.insertScanned(it.scanTarget(local), amount) }
 
     fun remove(index: Int) = _state.update { it.copy(model = it.model.remove(index, it.rates)) }
 
@@ -132,6 +144,10 @@ class ConverterViewModel(app: Application) : AndroidViewModel(app) {
         const val SAVE_DEBOUNCE_MS = 300L
     }
 
-    private inline fun updateModel(crossinline change: (ConverterModel) -> ConverterModel) =
-        _state.update { it.copy(model = change(it.model)) }
+    /** [expand]: the user is about to type (a tap on an amount, a scanned price), so the keypad unfolds. */
+    private inline fun updateModel(expand: Boolean = false, crossinline change: (ConverterModel) -> ConverterModel) =
+        _state.update { (if (expand) it.withKeypad() else it).copy(model = change(it.model)) }
 }
+
+/** The user is about to type: a folded keypad unfolds; one not restored yet stays as it is. */
+internal fun ConverterUiState.withKeypad() = if (keypadCollapsed == true) copy(keypadCollapsed = false) else this

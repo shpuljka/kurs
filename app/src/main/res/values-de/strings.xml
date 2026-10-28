@@ -11,6 +11,8 @@
     <string name="rates_offline">offline</string>
     <string name="rates_unavailable">Keine Kurse – Verbindung prüfen</string>
     <string name="refresh_rates">Kurse aktualisieren</string>
+    <string name="keypad_collapse">Tastenfeld einklappen</string>
+    <string name="keypad_expand">Tastenfeld ausklappen</string>
     <string name="key_clear">Löschen</string>
     <string name="key_percent">Prozent</string>
     <string name="key_backspace">Rücktaste</string>

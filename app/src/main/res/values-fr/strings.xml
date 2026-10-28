@@ -11,6 +11,8 @@
     <string name="rates_offline">hors ligne</string>
     <string name="rates_unavailable">Pas de cours — vérifiez votre connexion</string>
     <string name="refresh_rates">Actualiser les cours</string>
+    <string name="keypad_collapse">Masquer le clavier</string>
+    <string name="keypad_expand">Afficher le clavier</string>
     <string name="key_clear">Effacer</string>
     <string name="key_percent">Pourcentage</string>
     <string name="key_backspace">Retour arrière</string>

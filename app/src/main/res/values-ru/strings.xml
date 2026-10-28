@@ -12,6 +12,8 @@
     <string name="rates_offline">нет соединения</string>
     <string name="rates_unavailable">Нет курсов — проверьте соединение</string>
     <string name="refresh_rates">Обновить курсы</string>
+    <string name="keypad_collapse">Свернуть клавиатуру</string>
+    <string name="keypad_expand">Развернуть клавиатуру</string>
 
     <string name="key_clear">Очистить</string>
     <string name="key_percent">Процент</string>

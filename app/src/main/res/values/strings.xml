@@ -14,6 +14,8 @@
     <string name="rates_offline">offline</string>
     <string name="rates_unavailable">No rates — check your connection</string>
     <string name="refresh_rates">Refresh rates</string>
+    <string name="keypad_collapse">Collapse keypad</string>
+    <string name="keypad_expand">Expand keypad</string>
 
     <string name="key_clear">Clear</string>
     <string name="key_percent">Percent</string>

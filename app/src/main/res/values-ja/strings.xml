@@ -11,6 +11,8 @@
     <string name="rates_offline">オフライン</string>
     <string name="rates_unavailable">レートがありません。接続を確認してください</string>
     <string name="refresh_rates">レートを更新</string>
+    <string name="keypad_collapse">キーパッドを閉じる</string>
+    <string name="keypad_expand">キーパッドを開く</string>
     <string name="key_clear">クリア</string>
     <string name="key_percent">パーセント</string>
     <string name="key_backspace">1文字削除</string>

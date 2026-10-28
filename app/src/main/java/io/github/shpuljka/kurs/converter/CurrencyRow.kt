@@ -71,6 +71,7 @@ fun CurrencyRow(
     onCursor: (Int) -> Unit,
     onSelectAll: () -> Unit,
     modifier: Modifier = Modifier,
+    showCursor: Boolean = true,
 ) {
     val c = KursTheme.colors
     val active = input != null
@@ -128,10 +129,11 @@ fun CurrencyRow(
                         autoSize = null,
                         onCursor = onCursor,
                         onSelectAll = onSelectAll,
+                        showCursor = showCursor,
                     )
                     BasicText(amount, maxLines = 1, autoSize = amountSize, style = amountStyle, modifier = Modifier.fillMaxWidth())
                 }
-                else -> EditableAmount(input, amountStyle, amountSize, onCursor, onSelectAll)
+                else -> EditableAmount(input, amountStyle, amountSize, onCursor, onSelectAll, showCursor)
             }
         }
     }
@@ -145,6 +147,8 @@ private fun EditableAmount(
     autoSize: TextAutoSize?,
     onCursor: (Int) -> Unit,
     onSelectAll: () -> Unit,
+    /** False while the keypad is folded: neither the cursor nor the selection is drawn. */
+    showCursor: Boolean = true,
 ) {
     val c = KursTheme.colors
     val f = input.formatted
@@ -179,11 +183,11 @@ private fun EditableAmount(
             }
             .drawWithContent {
                 val l = layout
-                if (l != null && start != end) {
+                if (l != null && showCursor && start != end) {
                     drawPath(l.getPathForRange(minOf(start, end), maxOf(start, end)), c.accent.copy(alpha = 0.28f))
                 }
                 drawContent()
-                if (l != null && start == end) {
+                if (l != null && showCursor && start == end) {
                     val r = l.getCursorRect(start)
                     val w = 2.dp.toPx()
                     drawRect(c.accent.copy(alpha = blink.value), topLeft = Offset(r.left - w / 2, r.top), size = Size(w, r.height))

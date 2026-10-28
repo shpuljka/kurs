@@ -11,6 +11,8 @@
     <string name="rates_offline">offline</string>
     <string name="rates_unavailable">Nessun cambio: controlla la connessione</string>
     <string name="refresh_rates">Aggiorna cambi</string>
+    <string name="keypad_collapse">Nascondi tastierino</string>
+    <string name="keypad_expand">Mostra tastierino</string>
     <string name="key_clear">Cancella</string>
     <string name="key_percent">Percentuale</string>
     <string name="key_backspace">Backspace</string>
